@@ -122,17 +122,19 @@ export default function AttendancePage() {
         }
       />
 
-      <div className="card p-4 mb-4 flex flex-wrap items-center gap-3">
-        <MonthYearPicker month={selMonth} year={selYear} onChange={(m, y) => { setSelMonth(m); setSelYear(y); }} />
-        <select value={filterEmp} onChange={e => setFilterEmp(e.target.value)} className="input w-48">
+      <div className="card p-4 mb-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:flex xl:flex-wrap xl:items-center">
+        <div className="w-full xl:w-auto">
+          <MonthYearPicker month={selMonth} year={selYear} onChange={(m, y) => { setSelMonth(m); setSelYear(y); }} />
+        </div>
+        <select value={filterEmp} onChange={e => setFilterEmp(e.target.value)} className="input w-full md:w-auto md:min-w-48">
           <option value="">All Employees</option>
           {employees.map(e => <option key={e.id} value={e.id}>{e.fullName}</option>)}
         </select>
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="input w-36">
+        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="input w-full md:w-auto md:min-w-36">
           <option value="">All Status</option>
           {attendanceStatuses().map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        <div className="ml-auto flex flex-wrap items-center gap-4 text-xs text-slate-500">
+        <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 xl:ml-auto">
           <span><span className="font-semibold text-emerald-600">{totalPresent}</span> Present</span>
           <span><span className="font-semibold text-red-500">{totalAbsent}</span> Absent</span>
           <span><span className="font-semibold text-slate-700">{totalWorkHours.toFixed(1)}h</span> Working</span>
@@ -140,7 +142,51 @@ export default function AttendancePage() {
         </div>
       </div>
 
-      <div className="card overflow-x-auto">
+      <div className="card lg:hidden">
+        {loading ? (
+          <div className="flex justify-center py-16"><Spinner size="lg" /></div>
+        ) : filtered.length === 0 ? (
+          <EmptyState message="No attendance records for this period" />
+        ) : (
+          <div className="p-4 space-y-3">
+            {filtered.map(r => (
+              <div key={r.id} className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-slate-900 leading-tight">{r.employeeName}</p>
+                    <p className="text-xs text-slate-400 font-mono">{r.employeeCode}</p>
+                  </div>
+                  <span className={statusBadgeClass(r.status)}>{r.status}</span>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                  <InfoPair label="Date" value={r.date} />
+                  <InfoPair label="Start" value={formatTime(r.start)} mono />
+                  <InfoPair label="End" value={formatTime(r.end)} mono />
+                  <InfoPair label="Work" value={r.workHours > 0 ? `${r.workHours.toFixed(2)}h` : '—'} mono />
+                  <InfoPair label="OT" value={r.otHours > 0 ? `${r.otHours.toFixed(2)}h` : '—'} mono />
+                  <InfoPair label="Transport" value={r.transport || '—'} />
+                </div>
+                <div className="mt-3 text-sm">
+                  <p className="text-[10px] uppercase tracking-[0.24em] text-slate-400 mb-1">Site / Project</p>
+                  <p className="text-slate-700">{r.siteProject || '—'}</p>
+                </div>
+                {r.remarks && (
+                  <div className="mt-2 text-sm">
+                    <p className="text-[10px] uppercase tracking-[0.24em] text-slate-400 mb-1">Remarks</p>
+                    <p className="text-slate-500">{r.remarks}</p>
+                  </div>
+                )}
+                <div className="mt-4 flex items-center justify-end gap-2">
+                  <button onClick={() => openEdit(r)} className="btn-secondary px-3 py-2 text-xs">Edit</button>
+                  <button onClick={() => setDeleteTarget(r)} className="btn-danger px-3 py-2 text-xs">Delete</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="card overflow-x-auto hidden lg:block">
         {loading ? (
           <div className="flex justify-center py-16"><Spinner size="lg" /></div>
         ) : filtered.length === 0 ? (
@@ -608,4 +654,13 @@ function TrashIcon() {
 
 function DropdownIcon() {
   return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M7 10l5 5 5-5"/><path d="M7 6h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/></svg>;
+}
+
+function InfoPair({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div>
+      <p className="text-[10px] uppercase tracking-[0.22em] text-slate-400">{label}</p>
+      <p className={`mt-1 ${mono ? 'font-mono text-slate-700' : 'text-slate-700'}`}>{value}</p>
+    </div>
+  );
 }

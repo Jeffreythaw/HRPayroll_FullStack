@@ -96,99 +96,152 @@ export default function EmployeesPage() {
       />
 
       {/* Filters */}
-      <div className="card p-4 mb-4 flex flex-wrap items-center gap-3">
+      <div className="card p-4 mb-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:flex xl:flex-wrap xl:items-center">
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="input w-56"
+          className="input w-full md:w-auto md:min-w-56"
           placeholder="Search name, code, email…"
         />
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="input w-36">
+        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="input w-full md:w-auto md:min-w-36">
           <option value="">All Status</option>
           <option value="Active">Active</option>
           <option value="Inactive">Inactive</option>
         </select>
-        <select value={filterDept} onChange={e => setFilterDept(e.target.value)} className="input w-48">
+        <select value={filterDept} onChange={e => setFilterDept(e.target.value)} className="input w-full md:w-auto md:min-w-48">
           <option value="">All Departments</option>
           {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
         </select>
-        <span className="text-sm text-slate-500 ml-auto">{filtered.length} result{filtered.length !== 1 ? 's' : ''}</span>
+        <span className="text-sm text-slate-500 xl:ml-auto">{filtered.length} result{filtered.length !== 1 ? 's' : ''}</span>
       </div>
 
-      {/* Table */}
-      <div className="card overflow-x-auto">
+      {/* List */}
+      <div className="card overflow-hidden">
         {loading ? (
           <div className="flex justify-center py-16"><Spinner size="lg" /></div>
         ) : filtered.length === 0 ? (
           <EmptyState message="No employees found" />
         ) : (
-          <table className="w-full">
-            <thead>
-              <tr>
-                <th className="table-th">Employee</th>
-                <th className="table-th">Department</th>
-                <th className="table-th">Position</th>
-                <th className="table-th">Basic Salary</th>
-                <th className="table-th">OT Rate/Hr</th>
-                <th className="table-th">Join Date</th>
-                <th className="table-th">Profiles</th>
-                <th className="table-th">Status</th>
-                <th className="table-th w-24">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            <div className="lg:hidden divide-y divide-slate-100">
               {filtered.map(emp => (
-                <tr key={emp.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="table-td">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-navy-100 text-navy-800 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
+                <div key={emp.id} className="p-4 space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 bg-navy-100 text-navy-800 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
                         {emp.firstName[0]}{emp.lastName[0]}
                       </div>
-                      <div>
-                        <p className="font-semibold text-slate-900 leading-tight">{emp.fullName}</p>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-slate-900 leading-tight truncate">{emp.fullName}</p>
                         <p className="text-xs text-slate-400 font-mono">{emp.employeeCode}</p>
+                        <p className="text-xs text-slate-500 mt-1 truncate">{emp.departmentName}</p>
                       </div>
                     </div>
-                  </td>
-                  <td className="table-td text-slate-600">{emp.departmentName}</td>
-                  <td className="table-td text-slate-600">{emp.position}</td>
-                  <td className="table-td font-mono font-medium">{formatCurrency(emp.basicSalary)}</td>
-                  <td className="table-td font-mono">{formatCurrency(emp.otRatePerHour)}</td>
-                  <td className="table-td text-slate-500">{formatDate(emp.joinDate)}</td>
-                  <td className="table-td">
+                    <span className={statusBadgeClass(emp.status)}>{emp.status}</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <MiniInfo label="Position" value={emp.position || '—'} />
+                    <MiniInfo label="Join Date" value={formatDate(emp.joinDate) || '—'} />
+                    <MiniInfo label="Basic Salary" value={formatCurrency(emp.basicSalary)} />
+                    <MiniInfo label="OT Rate/Hr" value={formatCurrency(emp.otRatePerHour)} accent="text-indigo-600" />
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
                       onClick={() => openProfiles(emp)}
-                      className="text-xs font-semibold text-navy-800 hover:underline"
+                      className="btn-secondary px-3 py-2 text-xs"
                     >
                       Manage Profiles
                     </button>
-                  </td>
-                  <td className="table-td">
-                    <span className={statusBadgeClass(emp.status)}>{emp.status}</span>
-                  </td>
-                  <td className="table-td">
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => openEdit(emp)}
-                        className="p-1.5 text-slate-400 hover:text-navy-800 hover:bg-navy-50 rounded transition-colors"
-                        title="Edit"
-                      >
-                        <EditIcon />
-                      </button>
-                      <button
-                        onClick={() => setDeleteTarget(emp)}
-                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                        title="Deactivate"
-                        disabled={emp.status === 'Inactive'}
-                      >
-                        <TrashIcon />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                    <button
+                      onClick={() => openEdit(emp)}
+                      className="btn-primary px-3 py-2 text-xs"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => setDeleteTarget(emp)}
+                      className="btn-danger px-3 py-2 text-xs"
+                      disabled={emp.status === 'Inactive'}
+                    >
+                      Deactivate
+                    </button>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+
+            <div className="hidden lg:block overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr>
+                    <th className="table-th">Employee</th>
+                    <th className="table-th">Department</th>
+                    <th className="table-th">Position</th>
+                    <th className="table-th">Basic Salary</th>
+                    <th className="table-th">OT Rate/Hr</th>
+                    <th className="table-th">Join Date</th>
+                    <th className="table-th">Profiles</th>
+                    <th className="table-th">Status</th>
+                    <th className="table-th w-24">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(emp => (
+                    <tr key={emp.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="table-td">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-navy-100 text-navy-800 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
+                            {emp.firstName[0]}{emp.lastName[0]}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-slate-900 leading-tight">{emp.fullName}</p>
+                            <p className="text-xs text-slate-400 font-mono">{emp.employeeCode}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="table-td text-slate-600">{emp.departmentName}</td>
+                      <td className="table-td text-slate-600">{emp.position}</td>
+                      <td className="table-td font-mono font-medium">{formatCurrency(emp.basicSalary)}</td>
+                      <td className="table-td font-mono">{formatCurrency(emp.otRatePerHour)}</td>
+                      <td className="table-td text-slate-500">{formatDate(emp.joinDate)}</td>
+                      <td className="table-td">
+                        <button
+                          onClick={() => openProfiles(emp)}
+                          className="text-xs font-semibold text-navy-800 hover:underline"
+                        >
+                          Manage Profiles
+                        </button>
+                      </td>
+                      <td className="table-td">
+                        <span className={statusBadgeClass(emp.status)}>{emp.status}</span>
+                      </td>
+                      <td className="table-td">
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => openEdit(emp)}
+                            className="p-1.5 text-slate-400 hover:text-navy-800 hover:bg-navy-50 rounded transition-colors"
+                            title="Edit"
+                          >
+                            <EditIcon />
+                          </button>
+                          <button
+                            onClick={() => setDeleteTarget(emp)}
+                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                            title="Deactivate"
+                            disabled={emp.status === 'Inactive'}
+                          >
+                            <TrashIcon />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
@@ -792,3 +845,20 @@ function EmployeeProfilesModal({ open, onClose, employee }: { open: boolean; onC
 function PlusIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>; }
 function EditIcon() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>; }
 function TrashIcon() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>; }
+
+function MiniInfo({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
+      <p className="text-[10px] uppercase tracking-[0.22em] text-slate-400">{label}</p>
+      <p className={`mt-1 text-sm font-semibold ${accent ?? 'text-slate-800'}`}>{value}</p>
+    </div>
+  );
+}

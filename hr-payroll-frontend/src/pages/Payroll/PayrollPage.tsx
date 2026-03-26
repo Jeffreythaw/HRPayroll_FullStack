@@ -67,9 +67,9 @@ export default function PayrollPage() {
       />
 
       {/* Month picker */}
-      <div className="card p-4 mb-4 flex items-center gap-3">
+      <div className="card p-4 mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
         <MonthYearPicker month={selMonth} year={selYear} onChange={(m, y) => { setSelMonth(m); setSelYear(y); }} />
-        <span className="text-sm text-slate-500 ml-auto">{records.length} records</span>
+        <span className="text-sm text-slate-500 sm:ml-auto">{records.length} records</span>
       </div>
 
       {/* Summary cards */}
@@ -82,80 +82,124 @@ export default function PayrollPage() {
         </div>
       )}
 
-      {/* Table */}
-      <div className="card overflow-x-auto">
+      {/* Records */}
+      <div className="card overflow-hidden">
         {loading ? (
           <div className="flex justify-center py-16"><Spinner size="lg" /></div>
         ) : records.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+          <div className="flex flex-col items-center justify-center py-16 text-slate-400 px-4 text-center">
             <ProcessIcon2 />
             <p className="text-sm font-medium mt-3">No payroll records for this month</p>
             <p className="text-xs mt-1">Click "Process Payroll" to calculate salaries</p>
           </div>
         ) : (
-          <table className="w-full">
-            <thead>
-              <tr>
-                <th className="table-th">Employee</th>
-                <th className="table-th">Department</th>
-                <th className="table-th">Days</th>
-                <th className="table-th">Work Hrs</th>
-                <th className="table-th">OT Hrs</th>
-                <th className="table-th">Basic</th>
-                <th className="table-th">OT Amt</th>
-                <th className="table-th">Deduct.</th>
-                <th className="table-th">Net Salary</th>
-                <th className="table-th">Status</th>
-                <th className="table-th w-20">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            <div className="lg:hidden divide-y divide-slate-100">
               {records.map(r => (
-                <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="table-td">
-                    <p className="font-semibold text-slate-900">{r.employeeName}</p>
-                    <p className="text-xs font-mono text-slate-400">{r.employeeCode}</p>
-                  </td>
-                  <td className="table-td text-slate-500 text-xs">{r.departmentName}</td>
-                  <td className="table-td">
-                    <div className="text-xs">
-                      <span className="text-emerald-600 font-semibold">{r.presentDays}P</span>
-                      {' / '}
-                      <span className="text-red-500">{r.absentDays}A</span>
-                      {' / '}
-                      <span className="text-amber-500">{r.leaveDays}L</span>
+                <div key={r.id} className="p-4 space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-slate-900 leading-tight">{r.employeeName}</p>
+                      <p className="text-xs font-mono text-slate-400">{r.employeeCode}</p>
+                      <p className="text-xs text-slate-500 mt-1">{r.departmentName}</p>
                     </div>
-                    <p className="text-xs text-slate-400">{r.workingDays} work days</p>
-                  </td>
-                  <td className="table-td font-mono text-sm">{r.totalWorkHours.toFixed(1)}h</td>
-                  <td className="table-td font-mono text-sm text-indigo-600">{r.totalOTHours.toFixed(1)}h</td>
-                  <td className="table-td font-mono text-sm">{formatCurrency(r.basicSalary)}</td>
-                  <td className="table-td font-mono text-sm text-indigo-600">{formatCurrency(r.otAmount)}</td>
-                  <td className="table-td font-mono text-sm text-red-500">-{formatCurrency(r.deductions)}</td>
-                  <td className="table-td">
-                    <span className="font-bold font-mono text-slate-900">{formatCurrency(r.netSalary)}</span>
-                  </td>
-                  <td className="table-td">
                     <button
                       onClick={() => { setStatusTarget(r); setShowStatusModal(true); }}
                       className={`${statusBadgeClass(r.status)} cursor-pointer hover:opacity-80`}
                     >
                       {r.status}
                     </button>
-                  </td>
-                  <td className="table-td">
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <MetricCard label="Present / Absent / Leave" value={`${r.presentDays} / ${r.absentDays} / ${r.leaveDays}`} />
+                    <MetricCard label="Work Days" value={`${r.workingDays}`} />
+                    <MetricCard label="Work Hours" value={`${r.totalWorkHours.toFixed(1)}h`} />
+                    <MetricCard label="OT Hours" value={`${r.totalOTHours.toFixed(1)}h`} accent="text-indigo-600" />
+                    <MetricCard label="Basic" value={formatCurrency(r.basicSalary)} />
+                    <MetricCard label="OT Amt" value={formatCurrency(r.otAmount)} accent="text-indigo-600" />
+                    <MetricCard label="Deduct." value={`-${formatCurrency(r.deductions)}`} accent="text-red-500" />
+                    <MetricCard label="Net Salary" value={formatCurrency(r.netSalary)} strong />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-1">
                     <button
                       onClick={() => setDeleteTarget(r)}
-                      className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                      title="Delete"
+                      className="btn-danger px-3 py-2 text-xs"
                     >
-                      <TrashIcon />
+                      Delete
                     </button>
-                  </td>
-                </tr>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+
+            <div className="hidden lg:block overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr>
+                    <th className="table-th">Employee</th>
+                    <th className="table-th">Department</th>
+                    <th className="table-th">Days</th>
+                    <th className="table-th">Work Hrs</th>
+                    <th className="table-th">OT Hrs</th>
+                    <th className="table-th">Basic</th>
+                    <th className="table-th">OT Amt</th>
+                    <th className="table-th">Deduct.</th>
+                    <th className="table-th">Net Salary</th>
+                    <th className="table-th">Status</th>
+                    <th className="table-th w-20">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {records.map(r => (
+                    <tr key={r.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="table-td">
+                        <p className="font-semibold text-slate-900">{r.employeeName}</p>
+                        <p className="text-xs font-mono text-slate-400">{r.employeeCode}</p>
+                      </td>
+                      <td className="table-td text-slate-500 text-xs">{r.departmentName}</td>
+                      <td className="table-td">
+                        <div className="text-xs">
+                          <span className="text-emerald-600 font-semibold">{r.presentDays}P</span>
+                          {' / '}
+                          <span className="text-red-500">{r.absentDays}A</span>
+                          {' / '}
+                          <span className="text-amber-500">{r.leaveDays}L</span>
+                        </div>
+                        <p className="text-xs text-slate-400">{r.workingDays} work days</p>
+                      </td>
+                      <td className="table-td font-mono text-sm">{r.totalWorkHours.toFixed(1)}h</td>
+                      <td className="table-td font-mono text-sm text-indigo-600">{r.totalOTHours.toFixed(1)}h</td>
+                      <td className="table-td font-mono text-sm">{formatCurrency(r.basicSalary)}</td>
+                      <td className="table-td font-mono text-sm text-indigo-600">{formatCurrency(r.otAmount)}</td>
+                      <td className="table-td font-mono text-sm text-red-500">-{formatCurrency(r.deductions)}</td>
+                      <td className="table-td">
+                        <span className="font-bold font-mono text-slate-900">{formatCurrency(r.netSalary)}</span>
+                      </td>
+                      <td className="table-td">
+                        <button
+                          onClick={() => { setStatusTarget(r); setShowStatusModal(true); }}
+                          className={`${statusBadgeClass(r.status)} cursor-pointer hover:opacity-80`}
+                        >
+                          {r.status}
+                        </button>
+                      </td>
+                      <td className="table-td">
+                        <button
+                          onClick={() => setDeleteTarget(r)}
+                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                          title="Delete"
+                        >
+                          <TrashIcon />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
@@ -329,3 +373,22 @@ function CheckIcon()    { return <svg width="20" height="20" viewBox="0 0 24 24"
 function ProcessIcon()  { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>; }
 function ProcessIcon2() { return <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>; }
 function TrashIcon()    { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>; }
+
+function MetricCard({
+  label,
+  value,
+  accent,
+  strong,
+}: {
+  label: string;
+  value: string;
+  accent?: string;
+  strong?: boolean;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
+      <p className="text-[10px] uppercase tracking-[0.22em] text-slate-400">{label}</p>
+      <p className={`mt-1 text-sm ${strong ? 'font-bold text-slate-900' : `font-semibold ${accent ?? 'text-slate-800'}`}`}>{value}</p>
+    </div>
+  );
+}
