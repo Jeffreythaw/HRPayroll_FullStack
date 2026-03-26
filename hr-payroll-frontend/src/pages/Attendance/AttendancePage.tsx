@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { attendanceApi, attendanceLookupApi, employeeApi } from '../../api';
@@ -27,6 +27,8 @@ export default function AttendancePage() {
   const [editing, setEditing] = useState<Attendance | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Attendance | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const initialPeriodRef = useRef({ month, year });
+  const autoFallbackUsedRef = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -36,6 +38,25 @@ export default function AttendancePage() {
         employeeApi.getAll({ status: 'Active' }),
         attendanceLookupApi.getAll(),
       ]);
+
+      if (
+        !autoFallbackUsedRef.current &&
+        recs.length === 0 &&
+        selMonth === initialPeriodRef.current.month &&
+        selYear === initialPeriodRef.current.year
+      ) {
+        const fallback = await findLatestAttendancePeriod(initialPeriodRef.current.year, initialPeriodRef.current.month);
+        if (fallback) {
+          autoFallbackUsedRef.current = true;
+          setSelMonth(fallback.month);
+          setSelYear(fallback.year);
+          setRecords(fallback.records);
+          setEmployees(emps);
+          setLookups(lookupItems);
+          return;
+        }
+      }
+
       setRecords(recs);
       setEmployees(emps);
       setLookups(lookupItems);
@@ -210,6 +231,19 @@ export default function AttendancePage() {
       />
     </div>
   );
+}
+
+async function findLatestAttendancePeriod(startYear: number, startMonth: number) {
+  for (let offset = 1; offset <= 12; offset++) {
+    const date = new Date(startYear, startMonth - 1 - offset, 1);
+    const month = date.getMonth() + 1;
+    const year = date.getFullYear();
+    const records = await attendanceApi.getByMonth(month, year);
+    if (records.length > 0) {
+      return { month, year, records };
+    }
+  }
+  return null;
 }
 
 // ─── Attendance Form Modal ────────────────────────────────────

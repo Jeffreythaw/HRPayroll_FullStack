@@ -191,6 +191,37 @@ def build_records(workbook_path: Path, employee_map: dict[str, int]) -> list[Att
     return records
 
 
+def build_lookup_values(workbook_path: Path) -> dict[str, list[str]]:
+    wb = load_workbook(workbook_path, data_only=True)
+    sites: set[str] = set()
+    transports: set[str] = set()
+
+    for sheet_name in wb.sheetnames:
+        if sheet_name not in PRIMARY_SHEETS:
+            continue
+
+        ws = wb[sheet_name]
+        for row_idx in range(10, 38):
+            raw_site = ws.cell(row_idx, 8).value
+            raw_transport = ws.cell(row_idx, 12).value
+
+            site = str(raw_site).strip() if raw_site not in (None, "", " ") else ""
+            if site:
+                sites.add(site)
+
+            transport = ""
+            if raw_transport not in (None, "", " ", "-", "—"):
+                # The workbook uses compact transport codes in the diary column.
+                transport = "MRT"
+            if transport:
+                transports.add(transport)
+
+    return {
+        "SiteProject": sorted(sites),
+        "Transport": sorted(transports),
+    }
+
+
 def normalize_connection_string(connection_string: str) -> str:
     normalized = connection_string
     normalized = re.sub(r"User Id\s*=", "UID=", normalized, flags=re.IGNORECASE)
@@ -227,6 +258,7 @@ def main() -> int:
         employee_map[normalize_text(f"{first_name} {last_name}")] = int(employee_id)
 
     records = build_records(args.workbook, employee_map)
+    lookup_values = build_lookup_values(args.workbook)
     if not records:
         raise SystemExit("No attendance rows were parsed from the workbook.")
 
@@ -237,6 +269,9 @@ def main() -> int:
         print(f"  ... {len(records) - 5} more rows")
 
     if args.dry_run:
+        print("Lookup values to seed:")
+        for category, values in lookup_values.items():
+            print(f"  {category}: {values}")
         return 0
 
     employee_ids = sorted({rec.employee_id for rec in records})
@@ -282,6 +317,24 @@ def main() -> int:
     conn.commit()
     print(f"Inserted {inserted} attendance rows.")
 
+    lookup_sql = """
+        SELECT TOP 1 Id, Name, IsActive, SortOrder
+        FROM SLE_AttendanceLookups
+        WHERE Category = ? AND Name = ?
+    """
+    insert_lookup_sql = """
+        INSERT INTO SLE_AttendanceLookups (Category, Name, IsActive, SortOrder, CreatedAt, UpdatedAt)
+        VALUES (?, ?, 1, ?, ?, ?)
+    """
+    now = datetime.utcnow()
+    print("Seeding lookup values...")
+    for category, values in lookup_values.items():
+        for idx, name in enumerate(values, start=1):
+            existing = cur.execute(lookup_sql, category, name).fetchone()
+            if existing is None:
+                cur.execute(insert_lookup_sql, category, name, idx, now, now)
+    conn.commit()
+
     # Quick verification output.
     for employee_id in employee_ids:
         count = cur.execute(
@@ -291,6 +344,9 @@ def main() -> int:
             month_end,
         ).fetchone()[0]
         print(f"  employee {employee_id}: {count} rows")
+
+    for category, values in lookup_values.items():
+        print(f"  {category}: {', '.join(values) if values else 'none'}")
 
     return 0
 
