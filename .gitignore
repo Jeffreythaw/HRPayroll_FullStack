@@ -1,0 +1,10 @@
+.DS_Store
+**/bin/
+**/obj/
+**/dist/
+**/node_modules/
+**/.env
+**/.env.*
+**/secrets.json
+**/usersecrets/
+HRPayroll/HRPayroll.API/appsettings.Development.json

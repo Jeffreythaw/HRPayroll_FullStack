@@ -1,0 +1,365 @@
+using ClosedXML.Excel;
+using HRPayroll.Core.DTOs;
+using HRPayroll.Core.Interfaces;
+using HRPayroll.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
+
+namespace HRPayroll.Infrastructure.Services;
+
+public class ExcelReportService : IExcelReportService
+{
+    private readonly AppDbContext _db;
+    public ExcelReportService(AppDbContext db) => _db = db;
+
+    public async Task<byte[]> GenerateMonthlyReportAsync(ExcelReportRequest req)
+    {
+        var employees = await _db.Employees
+            .Include(e => e.Department)
+            .Where(e => e.Status == "Active" &&
+                        (req.EmployeeIds == null || req.EmployeeIds.Contains(e.Id)))
+            .OrderBy(e => e.EmployeeCode)
+            .ToListAsync();
+
+        var monthName = new DateTime(req.Year, req.Month, 1).ToString("MMMM yyyy");
+        var daysInMonth = DateTime.DaysInMonth(req.Year, req.Month);
+
+        using var workbook = new XLWorkbook();
+        workbook.Style.Font.FontName = "Calibri";
+
+        // Define colour palette
+        var headerBg = XLColor.FromHtml("#1E3A5F");        // deep navy
+        var subHeaderBg = XLColor.FromHtml("#2D6A9F");     // medium blue
+        var sectionBg = XLColor.FromHtml("#E8F0FB");       // light blue tint
+        var altRow = XLColor.FromHtml("#F5F8FF");           // very light blue
+        var presentColor = XLColor.FromHtml("#1A7F37");     // green
+        var absentColor = XLColor.FromHtml("#CF222E");      // red
+        var leaveColor = XLColor.FromHtml("#9A6700");       // amber
+        var holidayColor = XLColor.FromHtml("#6E40C9");     // purple
+        var otColor = XLColor.FromHtml("#0969DA");          // blue
+        var totalBg = XLColor.FromHtml("#FFF8DC");          // gold tint
+        var summaryHeaderBg = XLColor.FromHtml("#0D47A1");  // dark blue
+
+        foreach (var emp in employees)
+        {
+            var attendances = await _db.Attendances
+                .Where(a => a.EmployeeId == emp.Id && a.Date.Month == req.Month && a.Date.Year == req.Year)
+                .OrderBy(a => a.Date)
+                .ToListAsync();
+
+            var payroll = await _db.PayrollRecords
+                .FirstOrDefaultAsync(p => p.EmployeeId == emp.Id && p.Month == req.Month && p.Year == req.Year);
+
+            // Sheet name: truncate if needed
+            var sheetName = $"{emp.EmployeeCode} - {emp.FirstName}"[..Math.Min(31, $"{emp.EmployeeCode} - {emp.FirstName}".Length)];
+            var ws = workbook.Worksheets.Add(sheetName);
+
+            // ── Page Title ───────────────────────────────────────────
+            ws.Range("A1:L1").Merge();
+            var titleCell = ws.Cell("A1");
+            titleCell.Value = $"PAYROLL REPORT — {monthName.ToUpper()}";
+            titleCell.Style.Font.Bold = true;
+            titleCell.Style.Font.FontSize = 16;
+            titleCell.Style.Font.FontColor = XLColor.White;
+            titleCell.Style.Fill.BackgroundColor = headerBg;
+            titleCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            titleCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+            ws.Row(1).Height = 36;
+
+            // ── Employee Info Header ──────────────────────────────────
+            ws.Range("A2:L2").Merge();
+            var infoTitleCell = ws.Cell("A2");
+            infoTitleCell.Value = "EMPLOYEE INFORMATION";
+            infoTitleCell.Style.Font.Bold = true;
+            infoTitleCell.Style.Font.FontSize = 11;
+            infoTitleCell.Style.Font.FontColor = XLColor.White;
+            infoTitleCell.Style.Fill.BackgroundColor = subHeaderBg;
+            infoTitleCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+            ws.Row(2).Height = 22;
+            StyleAllBorders(ws.Range("A2:L2"), XLBorderStyleValues.Thin);
+
+            // Employee info block (2 columns: label/value pairs)
+            var infoData = new[]
+            {
+                ("Employee Code:", emp.EmployeeCode, "Full Name:", $"{emp.FirstName} {emp.LastName}"),
+                ("Department:", emp.Department?.Name ?? "", "Position:", emp.Position),
+                ("Join Date:", emp.JoinDate.ToString("dd/MM/yyyy"), "Basic Salary:", $"SGD {emp.BasicSalary:N2}"),
+                ("OT Rate/Hour:", $"SGD {emp.OTRatePerHour:N2}", "Std. Work Hours:", $"{emp.StandardWorkHours} hrs/day"),
+                ("Report Period:", monthName, "Status:", emp.Status)
+            };
+
+            int infoRow = 3;
+            foreach (var (lbl1, val1, lbl2, val2) in infoData)
+            {
+                ws.Range($"A{infoRow}:B{infoRow}").Merge();
+                ws.Cell($"A{infoRow}").Value = lbl1;
+                ws.Cell($"A{infoRow}").Style.Font.Bold = true;
+                ws.Cell($"A{infoRow}").Style.Fill.BackgroundColor = sectionBg;
+
+                ws.Range($"C{infoRow}:F{infoRow}").Merge();
+                ws.Cell($"C{infoRow}").Value = val1;
+
+                ws.Range($"G{infoRow}:H{infoRow}").Merge();
+                ws.Cell($"G{infoRow}").Value = lbl2;
+                ws.Cell($"G{infoRow}").Style.Font.Bold = true;
+                ws.Cell($"G{infoRow}").Style.Fill.BackgroundColor = sectionBg;
+
+                ws.Range($"I{infoRow}:L{infoRow}").Merge();
+                ws.Cell($"I{infoRow}").Value = val2;
+
+                ws.Row(infoRow).Height = 20;
+                StyleAllBorders(ws.Range($"A{infoRow}:L{infoRow}"), XLBorderStyleValues.Thin);
+                infoRow++;
+            }
+
+            // ── Spacer ────────────────────────────────────────────────
+            infoRow++;
+
+            // ── Attendance Table Header ───────────────────────────────
+            ws.Range($"A{infoRow}:L{infoRow}").Merge();
+            var attTitle = ws.Cell($"A{infoRow}");
+            attTitle.Value = "DAILY ATTENDANCE RECORD";
+            attTitle.Style.Font.Bold = true;
+            attTitle.Style.Font.FontSize = 11;
+            attTitle.Style.Font.FontColor = XLColor.White;
+            attTitle.Style.Fill.BackgroundColor = subHeaderBg;
+            attTitle.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+            ws.Row(infoRow).Height = 22;
+            infoRow++;
+
+            // Column headers
+            var attHeaders = new[] { "No", "Date", "Day", "Start", "End", "Work Hours", "OT Hours", "Status", "Remarks", "", "", "" };
+            // Use specific columns: A=No, B=Date, C=Day, D=Start, E=End, F=Work Hours, G=OT Hours, H=Status, I-L=Remarks
+            string[] colLetters = { "A", "B", "C", "D", "E", "F", "G", "H" };
+            string[] colHeaders = { "No.", "Date", "Day", "Start", "End", "Work Hours", "OT Hours", "Status" };
+
+            for (int c = 0; c < colHeaders.Length; c++)
+            {
+                var cell = ws.Cell($"{colLetters[c]}{infoRow}");
+                cell.Value = colHeaders[c];
+                cell.Style.Font.Bold = true;
+                cell.Style.Font.FontColor = XLColor.White;
+                cell.Style.Fill.BackgroundColor = headerBg;
+                cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            }
+            ws.Range($"I{infoRow}:L{infoRow}").Merge();
+            var remarkHeader = ws.Cell($"I{infoRow}");
+            remarkHeader.Value = "Remarks";
+            remarkHeader.Style.Font.Bold = true;
+            remarkHeader.Style.Font.FontColor = XLColor.White;
+            remarkHeader.Style.Fill.BackgroundColor = headerBg;
+            remarkHeader.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            StyleAllBorders(ws.Range($"A{infoRow}:L{infoRow}"), XLBorderStyleValues.Thin);
+            ws.Row(infoRow).Height = 22;
+            infoRow++;
+
+            // Attendance data rows
+            decimal totalWorkHours = 0; decimal totalOTHours = 0;
+            int presentCount = 0, absentCount = 0, leaveCount = 0, holidayCount = 0;
+
+            for (int day = 1; day <= daysInMonth; day++)
+            {
+                var date = new DateOnly(req.Year, req.Month, day);
+                var att = attendances.FirstOrDefault(a => a.Date == date);
+                var dow = new DateTime(req.Year, req.Month, day).DayOfWeek;
+                bool isSunday = dow == DayOfWeek.Sunday;
+
+                var rowBg = (day % 2 == 0) ? altRow : XLColor.White;
+                if (isSunday) rowBg = XLColor.FromHtml("#F0F0F0");
+
+                ws.Cell($"A{infoRow}").Value = day;
+                ws.Cell($"B{infoRow}").Value = date.ToString("dd/MM/yyyy");
+                ws.Cell($"C{infoRow}").Value = dow.ToString()[..3].ToUpper();
+                ws.Cell($"D{infoRow}").Value = att?.CheckIn?.ToString("HH:mm") ?? (isSunday ? "—" : "");
+                ws.Cell($"E{infoRow}").Value = att?.CheckOut?.ToString("HH:mm") ?? (isSunday ? "—" : "");
+                if (att != null)
+                {
+                    ws.Cell($"F{infoRow}").Value = att.WorkHours;
+                    ws.Cell($"G{infoRow}").Value = att.OTHours;
+                }
+                else if (isSunday)
+                {
+                    ws.Cell($"F{infoRow}").Value = "—";
+                    ws.Cell($"G{infoRow}").Value = "—";
+                }
+                else
+                {
+                    ws.Cell($"F{infoRow}").Value = "";
+                    ws.Cell($"G{infoRow}").Value = "0";
+                }
+
+                var status = att?.Status ?? (isSunday ? "Sunday" : "Absent");
+                ws.Range($"I{infoRow}:L{infoRow}").Merge();
+                ws.Cell($"H{infoRow}").Value = status;
+                ws.Cell($"I{infoRow}").Value = att?.Remarks ?? "";
+
+                // Status colour
+                var statusCell = ws.Cell($"H{infoRow}");
+                statusCell.Style.Font.FontColor = status switch
+                {
+                    "Present" => presentColor,
+                    "Absent" => absentColor,
+                    "Leave" => leaveColor,
+                    "Holiday" => holidayColor,
+                    "HalfDay" => otColor,
+                    _ => XLColor.Gray
+                };
+                statusCell.Style.Font.Bold = true;
+
+                // Row background
+                foreach (var col in new[] { "A", "B", "C", "D", "E", "F", "G", "H", "I" })
+                    ws.Cell($"{col}{infoRow}").Style.Fill.BackgroundColor = rowBg;
+
+                StyleAllBorders(ws.Range($"A{infoRow}:L{infoRow}"), XLBorderStyleValues.Thin);
+                ws.Cell($"A{infoRow}").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                ws.Cell($"C{infoRow}").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                ws.Cell($"D{infoRow}").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                ws.Cell($"E{infoRow}").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                ws.Cell($"F{infoRow}").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                ws.Cell($"G{infoRow}").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                ws.Cell($"H{infoRow}").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+                if (att != null)
+                {
+                    totalWorkHours += att.WorkHours;
+                    totalOTHours += att.OTHours;
+                    if (att.Status is "Present" or "HalfDay") presentCount++;
+                    else if (att.Status == "Absent") absentCount++;
+                    else if (att.Status == "Leave") leaveCount++;
+                    else if (att.Status == "Holiday") holidayCount++;
+                }
+                else if (!isSunday) absentCount++;
+
+                ws.Row(infoRow).Height = 18;
+                infoRow++;
+            }
+
+            // Totals row
+            ws.Range($"A{infoRow}:E{infoRow}").Merge();
+            ws.Cell($"A{infoRow}").Value = "TOTALS";
+            ws.Cell($"A{infoRow}").Style.Font.Bold = true;
+            ws.Cell($"A{infoRow}").Style.Fill.BackgroundColor = totalBg;
+            ws.Cell($"A{infoRow}").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+            ws.Cell($"F{infoRow}").Value = totalWorkHours;
+            ws.Cell($"F{infoRow}").Style.Font.Bold = true;
+            ws.Cell($"F{infoRow}").Style.Fill.BackgroundColor = totalBg;
+            ws.Cell($"F{infoRow}").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            ws.Cell($"G{infoRow}").Value = totalOTHours;
+            ws.Cell($"G{infoRow}").Style.Font.Bold = true;
+            ws.Cell($"G{infoRow}").Style.Fill.BackgroundColor = totalBg;
+            ws.Cell($"G{infoRow}").Style.Fill.BackgroundColor = totalBg;
+            ws.Cell($"G{infoRow}").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            ws.Range($"H{infoRow}:L{infoRow}").Merge();
+            ws.Cell($"H{infoRow}").Value = $"Present: {presentCount}  Absent: {absentCount}  Leave: {leaveCount}";
+            ws.Cell($"H{infoRow}").Style.Font.Bold = true;
+            ws.Cell($"H{infoRow}").Style.Fill.BackgroundColor = totalBg;
+            StyleAllBorders(ws.Range($"A{infoRow}:L{infoRow}"), XLBorderStyleValues.Medium);
+            ws.Row(infoRow).Height = 22;
+            infoRow += 2;
+
+            // ── Payroll Summary ───────────────────────────────────────
+            ws.Range($"A{infoRow}:L{infoRow}").Merge();
+            var payTitle = ws.Cell($"A{infoRow}");
+            payTitle.Value = "PAYROLL SUMMARY";
+            payTitle.Style.Font.Bold = true;
+            payTitle.Style.Font.FontSize = 11;
+            payTitle.Style.Font.FontColor = XLColor.White;
+            payTitle.Style.Fill.BackgroundColor = summaryHeaderBg;
+            payTitle.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+            ws.Row(infoRow).Height = 22;
+            infoRow++;
+
+            // Payroll summary rows
+            decimal workDays = Enumerable.Range(1, daysInMonth)
+                .Count(d => new DateTime(req.Year, req.Month, d).DayOfWeek != DayOfWeek.Sunday);
+            decimal dailyRate = payroll?.DailyRate ?? (workDays > 0 ? emp.BasicSalary / workDays : 0);
+            decimal otAmount = payroll?.OTAmount ?? (totalOTHours * emp.OTRatePerHour);
+            decimal deductions = payroll?.Deductions ?? (absentCount * dailyRate);
+            decimal grossSalary = payroll?.GrossSalary ?? (emp.BasicSalary + otAmount - deductions);
+            decimal netSalary = payroll?.NetSalary ?? grossSalary;
+
+            var summaryItems = new[]
+            {
+                ("Working Days in Month", workDays.ToString("N0"), "Present Days", presentCount.ToString()),
+                ("Absent Days", absentCount.ToString(), "Leave Days", leaveCount.ToString()),
+                ("Total Work Hours", totalWorkHours.ToString("N2"), "Total OT Hours", totalOTHours.ToString("N2")),
+                ("Basic Salary (SGD)", emp.BasicSalary.ToString("N2"), "Daily Rate (SGD)", dailyRate.ToString("N2")),
+                ("OT Amount (SGD)", otAmount.ToString("N2"), "Deductions (SGD)", deductions.ToString("N2")),
+                ("Gross Salary (SGD)", grossSalary.ToString("N2"), "Net Salary (SGD)", netSalary.ToString("N2"))
+            };
+
+            foreach (var (lbl1, val1, lbl2, val2) in summaryItems)
+            {
+                ws.Range($"A{infoRow}:C{infoRow}").Merge();
+                ws.Cell($"A{infoRow}").Value = lbl1;
+                ws.Cell($"A{infoRow}").Style.Font.Bold = true;
+                ws.Cell($"A{infoRow}").Style.Fill.BackgroundColor = sectionBg;
+
+                ws.Range($"D{infoRow}:F{infoRow}").Merge();
+                ws.Cell($"D{infoRow}").Value = val1;
+                ws.Cell($"D{infoRow}").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+                ws.Range($"G{infoRow}:I{infoRow}").Merge();
+                ws.Cell($"G{infoRow}").Value = lbl2;
+                ws.Cell($"G{infoRow}").Style.Font.Bold = true;
+                ws.Cell($"G{infoRow}").Style.Fill.BackgroundColor = sectionBg;
+
+                ws.Range($"J{infoRow}:L{infoRow}").Merge();
+                ws.Cell($"J{infoRow}").Value = val2;
+                ws.Cell($"J{infoRow}").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+                StyleAllBorders(ws.Range($"A{infoRow}:L{infoRow}"), XLBorderStyleValues.Thin);
+                ws.Row(infoRow).Height = 20;
+                infoRow++;
+            }
+
+            // Net salary highlighted row
+            ws.Range($"A{infoRow}:F{infoRow}").Merge();
+            ws.Cell($"A{infoRow}").Value = "NET SALARY TO PAY";
+            ws.Cell($"A{infoRow}").Style.Font.Bold = true;
+            ws.Cell($"A{infoRow}").Style.Font.FontSize = 13;
+            ws.Cell($"A{infoRow}").Style.Font.FontColor = XLColor.White;
+            ws.Cell($"A{infoRow}").Style.Fill.BackgroundColor = headerBg;
+            ws.Cell($"A{infoRow}").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+            ws.Range($"G{infoRow}:L{infoRow}").Merge();
+            ws.Cell($"G{infoRow}").Value = $"SGD {netSalary:N2}";
+            ws.Cell($"G{infoRow}").Style.Font.Bold = true;
+            ws.Cell($"G{infoRow}").Style.Font.FontSize = 13;
+            ws.Cell($"G{infoRow}").Style.Font.FontColor = XLColor.White;
+            ws.Cell($"G{infoRow}").Style.Fill.BackgroundColor = XLColor.FromHtml("#1A7F37");
+            ws.Cell($"G{infoRow}").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            StyleAllBorders(ws.Range($"A{infoRow}:L{infoRow}"), XLBorderStyleValues.Medium);
+            ws.Row(infoRow).Height = 28;
+
+            // ── Column widths ─────────────────────────────────────────
+            ws.Column("A").Width = 6;
+            ws.Column("B").Width = 14;
+            ws.Column("C").Width = 8;
+            ws.Column("D").Width = 12;
+            ws.Column("E").Width = 12;
+            ws.Column("F").Width = 12;
+            ws.Column("G").Width = 10;
+            ws.Column("H").Width = 12;
+            ws.Column("I").Width = 10;
+            ws.Column("J").Width = 10;
+            ws.Column("K").Width = 10;
+            ws.Column("L").Width = 10;
+
+            // Freeze top rows
+            ws.SheetView.FreezeRows(infoRow - daysInMonth - 8);
+        }
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
+    }
+
+    private static void StyleAllBorders(IXLRange range, XLBorderStyleValues style)
+    {
+        range.Style.Border.OutsideBorder = style;
+        range.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+    }
+}
