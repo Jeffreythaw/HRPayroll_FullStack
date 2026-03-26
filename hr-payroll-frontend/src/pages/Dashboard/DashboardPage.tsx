@@ -33,14 +33,66 @@ export default function DashboardPage() {
   const monthName = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title="Dashboard"
         subtitle={today}
+        actions={
+          <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm">
+            <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+            Live backend data
+          </div>
+        }
       />
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+      <div className="card p-6 overflow-hidden relative">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute -top-20 right-0 w-64 h-64 bg-sky-400/10 rounded-full blur-3xl" />
+          <div className="absolute -bottom-24 left-24 w-64 h-64 bg-navy-500/10 rounded-full blur-3xl" />
+        </div>
+        <div className="relative grid lg:grid-cols-[1.3fr_0.7fr] gap-6 items-center">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-400 mb-2">
+              Summary
+            </p>
+            <h2 className="text-2xl lg:text-3xl font-black tracking-tight text-slate-900">
+              Operations at a glance
+            </h2>
+            <p className="mt-3 text-sm text-slate-500 max-w-2xl leading-6">
+              Review attendance, department headcount, and payroll totals from the latest backend calculation.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <MiniPill label="Employees" value={String(data.totalEmployees)} />
+              <MiniPill label="Active" value={String(data.activeEmployees)} />
+              <MiniPill label="Payroll" value={formatCurrency(data.totalPayrollThisMonth)} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-2xl border border-slate-100 bg-white/80 p-4">
+              <p className="text-[10px] uppercase tracking-[0.24em] text-slate-400">Present Today</p>
+              <p className="mt-2 text-2xl font-bold text-slate-900">{data.presentToday}</p>
+              <p className="text-xs text-slate-500 mt-1">{data.absentToday} absent</p>
+            </div>
+            <div className="rounded-2xl border border-slate-100 bg-white/80 p-4">
+              <p className="text-[10px] uppercase tracking-[0.24em] text-slate-400">On Leave</p>
+              <p className="mt-2 text-2xl font-bold text-slate-900">{data.onLeaveToday}</p>
+              <p className="text-xs text-slate-500 mt-1">Today</p>
+            </div>
+            <div className="rounded-2xl border border-slate-100 bg-white/80 p-4 col-span-2">
+              <p className="text-[10px] uppercase tracking-[0.24em] text-slate-400">Attendance Rate</p>
+              <p className="mt-2 text-3xl font-black text-slate-900">
+                {data.activeEmployees > 0 ? `${Math.round((data.presentToday / data.activeEmployees) * 100)}%` : '—'}
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                {data.presentToday} of {data.activeEmployees} employees present
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard
           label="Total Employees"
           value={data.totalEmployees}
@@ -70,24 +122,28 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Charts + recent attendance */}
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
-        {/* Department headcount chart */}
-        <div className="xl:col-span-3 card p-5">
-          <h2 className="text-sm font-semibold text-slate-700 mb-4">Headcount by Department</h2>
+        <section className="xl:col-span-3 card p-5">
+          <div className="flex items-end justify-between gap-4 mb-4">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">Department</p>
+              <h2 className="text-base font-semibold text-slate-900">Headcount by department</h2>
+            </div>
+            <p className="text-xs text-slate-400">Live snapshot</p>
+          </div>
           {data.departmentHeadcounts.length === 0 ? (
-            <p className="text-sm text-slate-400 py-8 text-center">No department data</p>
+            <p className="text-sm text-slate-400 py-10 text-center">No department data</p>
           ) : (
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={data.departmentHeadcounts} margin={{ top: 0, right: 0, bottom: 0, left: -20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={data.departmentHeadcounts} margin={{ top: 8, right: 0, bottom: 0, left: -20 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" vertical={false} />
                 <XAxis dataKey="department" tick={{ fontSize: 12, fill: '#64748b' }} />
                 <YAxis tick={{ fontSize: 12, fill: '#64748b' }} allowDecimals={false} />
                 <Tooltip
-                  contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}
+                  contentStyle={{ fontSize: 12, borderRadius: 12, border: '1px solid #e2e8f0', boxShadow: '0 20px 40px -25px rgba(15,23,42,0.35)' }}
                   cursor={{ fill: '#f8fafc' }}
                 />
-                <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                <Bar dataKey="count" radius={[10, 10, 0, 0]}>
                   {data.departmentHeadcounts.map((_, i) => (
                     <Cell key={i} fill={COLORS[i % COLORS.length]} />
                   ))}
@@ -95,16 +151,21 @@ export default function DashboardPage() {
               </BarChart>
             </ResponsiveContainer>
           )}
-        </div>
+        </section>
 
-        {/* Attendance summary donut-style */}
-        <div className="xl:col-span-2 card p-5">
-          <h2 className="text-sm font-semibold text-slate-700 mb-4">Today's Attendance</h2>
+        <section className="xl:col-span-2 card p-5">
+          <div className="flex items-end justify-between gap-4 mb-4">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">Attendance</p>
+              <h2 className="text-base font-semibold text-slate-900">Today's status</h2>
+            </div>
+            <p className="text-xs text-slate-400">Active employees</p>
+          </div>
           <div className="space-y-3">
             {[
               { label: 'Present', value: data.presentToday, color: 'bg-emerald-500' },
               { label: 'Absent',  value: data.absentToday,  color: 'bg-red-500' },
-              { label: 'On Leave',value: data.onLeaveToday, color: 'bg-amber-500' },
+              { label: 'On Leave', value: data.onLeaveToday, color: 'bg-amber-500' },
             ].map(({ label, value, color }) => {
               const total = data.activeEmployees || 1;
               const pct = Math.round((value / total) * 100);
@@ -124,25 +185,21 @@ export default function DashboardPage() {
               );
             })}
           </div>
-
-          <div className="mt-4 pt-4 border-t border-slate-100">
-            <p className="text-xs text-slate-500 font-medium mb-2">Attendance Rate</p>
-            <p className="text-3xl font-bold text-slate-900">
-              {data.activeEmployees > 0
-                ? `${Math.round((data.presentToday / data.activeEmployees) * 100)}%`
-                : '—'}
-            </p>
-            <p className="text-xs text-slate-400 mt-0.5">
-              {data.presentToday} of {data.activeEmployees} employees
-            </p>
+          <div className="mt-5 pt-4 border-t border-slate-100">
+            <p className="text-xs text-slate-500 font-medium mb-2">Payroll total</p>
+            <p className="text-3xl font-black text-slate-900">{formatCurrency(data.totalPayrollThisMonth)}</p>
+            <p className="text-xs text-slate-400 mt-1">Net salary for {monthName}</p>
           </div>
-        </div>
+        </section>
       </div>
 
-      {/* Recent attendance table */}
-      <div className="card mt-4">
-        <div className="p-5 border-b border-slate-100">
-          <h2 className="text-sm font-semibold text-slate-700">Recent Attendance</h2>
+      <div className="card overflow-hidden">
+        <div className="p-5 border-b border-slate-100 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">Recent Activity</p>
+            <h2 className="text-base font-semibold text-slate-900">Recent attendance records</h2>
+          </div>
+          <p className="text-xs text-slate-400">Latest rows</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -157,13 +214,13 @@ export default function DashboardPage() {
             <tbody>
               {data.recentAttendances.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="table-td text-center text-slate-400 py-8">
+                  <td colSpan={4} className="table-td text-center text-slate-400 py-10">
                     No attendance records today
                   </td>
                 </tr>
               ) : (
                 data.recentAttendances.map((a, i) => (
-                  <tr key={i} className="hover:bg-slate-50 transition-colors">
+                  <tr key={i} className="hover:bg-slate-50/80 transition-colors">
                     <td className="table-td font-medium">{a.employeeName}</td>
                     <td className="table-td text-slate-500">{a.date}</td>
                     <td className="table-td font-mono text-slate-600">{formatTime(a.start)}</td>
@@ -177,6 +234,15 @@ export default function DashboardPage() {
           </table>
         </div>
       </div>
+    </div>
+  );
+}
+
+function MiniPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/75 px-4 py-2 shadow-sm">
+      <span className="text-[10px] uppercase tracking-[0.24em] text-slate-400">{label}</span>
+      <span className="text-sm font-semibold text-slate-900">{value}</span>
     </div>
   );
 }

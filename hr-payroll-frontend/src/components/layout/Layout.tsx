@@ -19,33 +19,33 @@ export default function Layout() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50">
+    <div className="flex h-screen overflow-hidden bg-transparent">
       {/* Sidebar */}
-      <aside className="w-60 flex-shrink-0 flex flex-col bg-navy-800 text-white">
+      <aside className="w-64 flex-shrink-0 flex flex-col bg-gradient-to-b from-navy-900 via-navy-800 to-navy-950 text-white border-r border-white/10 shadow-[8px_0_30px_-20px_rgba(15,23,42,0.6)]">
         {/* Logo */}
         <div className="flex items-center gap-3 px-5 py-5 border-b border-white/10">
-          <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+          <div className="w-10 h-10 bg-white/15 rounded-2xl flex items-center justify-center shadow-inner">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
             </svg>
           </div>
           <div>
-            <p className="text-sm font-bold leading-tight">HR Payroll</p>
-            <p className="text-xs text-white/50 leading-tight">Management System</p>
+            <p className="text-sm font-bold leading-tight tracking-wide">HR Payroll</p>
+            <p className="text-[11px] text-white/50 leading-tight uppercase tracking-[0.24em]">Management System</p>
           </div>
         </div>
 
         {/* Nav links */}
-        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {navItems.map(({ path, label, icon: Icon }) => (
             <NavLink
               key={path}
               to={path}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
+                `flex items-center gap-3 px-3.5 py-3 rounded-2xl text-sm font-semibold transition-all duration-200 ${
                   isActive
-                    ? 'bg-white/20 text-white'
-                    : 'text-white/60 hover:bg-white/10 hover:text-white'
+                    ? 'bg-white/16 text-white shadow-[0_14px_30px_-16px_rgba(255,255,255,0.35)] ring-1 ring-white/20'
+                    : 'text-white/65 hover:bg-white/10 hover:text-white'
                 }`
               }
             >
@@ -56,19 +56,19 @@ export default function Layout() {
         </nav>
 
         {/* User footer */}
-        <div className="px-3 py-4 border-t border-white/10">
-          <div className="flex items-center gap-3 px-3 py-2 rounded-lg">
-            <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center text-xs font-bold uppercase">
+        <div className="px-3 py-4 border-t border-white/10 bg-white/5">
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-white/5 border border-white/10">
+            <div className="w-9 h-9 bg-white/15 rounded-full flex items-center justify-center text-xs font-bold uppercase">
               {user?.username?.[0] ?? 'A'}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold truncate">{user?.username}</p>
-              <p className="text-xs text-white/40">{user?.role}</p>
+              <p className="text-[11px] text-white/40 uppercase tracking-[0.18em]">{user?.role}</p>
             </div>
             <button
               onClick={handleLogout}
               title="Logout"
-              className="text-white/40 hover:text-white transition-colors"
+              className="text-white/45 hover:text-white transition-colors"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
@@ -81,8 +81,12 @@ export default function Layout() {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="max-w-7xl mx-auto p-6">
+      <main className="flex-1 overflow-y-auto relative">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute -top-24 right-12 w-72 h-72 bg-navy-500/10 rounded-full blur-3xl" />
+          <div className="absolute top-40 -left-20 w-72 h-72 bg-sky-400/10 rounded-full blur-3xl" />
+        </div>
+        <div className="relative max-w-7xl mx-auto p-6 lg:p-8">
           <Outlet />
         </div>
       </main>

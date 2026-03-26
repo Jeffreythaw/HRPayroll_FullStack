@@ -29,10 +29,15 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }: M
         onClick={e => e.stopPropagation()}
       >
         <div className="modal-header">
-          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-400 mb-1">
+              Dialog
+            </p>
+            <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+          </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 transition-colors"
+            className="w-9 h-9 rounded-full border border-slate-200 bg-white text-slate-400 hover:text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-all"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -94,12 +99,13 @@ export function Spinner({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
 // ─── Empty state ──────────────────────────────────────────────
 export function EmptyState({ message = 'No data found' }: { message?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-slate-400">
-      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mb-3">
+    <div className="flex flex-col items-center justify-center py-16 text-slate-400 rounded-3xl border border-dashed border-slate-200 bg-white/55">
+      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mb-3 text-slate-300">
         <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
         <polyline points="13 2 13 9 20 9"/>
       </svg>
-      <p className="text-sm font-medium">{message}</p>
+      <p className="text-sm font-semibold text-slate-500">{message}</p>
+      <p className="text-xs text-slate-400 mt-1">Add records to see data here.</p>
     </div>
   );
 }
@@ -146,8 +152,9 @@ interface StatCardProps {
 
 export function StatCard({ label, value, icon, color = 'bg-navy-800', sub }: StatCardProps) {
   return (
-    <div className="card p-5 flex items-center gap-4">
-      <div className={`${color} text-white w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0`}>
+    <div className="card p-5 flex items-center gap-4 overflow-hidden relative">
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+      <div className={`${color} text-white w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-slate-200/40 ring-1 ring-white/20`}>
         {icon}
       </div>
       <div className="min-w-0">
@@ -169,6 +176,9 @@ export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
   return (
     <div className="page-header">
       <div>
+        <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-400 mb-1">
+          Overview
+        </p>
         <h1 className="page-title">{title}</h1>
         {subtitle && <p className="page-subtitle">{subtitle}</p>}
       </div>
