@@ -6,7 +6,7 @@ services:
     dockerContext: HRPayroll
     plan: free
     autoDeploy: true
-    healthCheckPath: /swagger/index.html
+    healthCheckPath: /health
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
         value: Production
