@@ -44,7 +44,9 @@ public class EmployeeDto
     public int DepartmentId { get; set; }
     public string DepartmentName { get; set; } = string.Empty;
     public string Position { get; set; } = string.Empty;
+    public string SalaryMode { get; set; } = "Monthly";
     public decimal BasicSalary { get; set; }
+    public decimal DailyRate { get; set; }
     public decimal ShiftAllowance { get; set; }
     public decimal OTRatePerHour { get; set; }
     public decimal SundayPhOtDays { get; set; }
@@ -53,7 +55,7 @@ public class EmployeeDto
     public decimal DeductionNoWork4Days { get; set; }
     public decimal AdvanceSalary { get; set; }
     public int StandardWorkHours { get; set; }
-    public DateOnly JoinDate { get; set; }
+    public DateOnly? JoinDate { get; set; }
     public string Status { get; set; } = string.Empty;
 }
 
@@ -66,7 +68,9 @@ public class CreateEmployeeRequest
     public string? Phone { get; set; }
     public int DepartmentId { get; set; }
     public string Position { get; set; } = string.Empty;
+    public string SalaryMode { get; set; } = "Monthly";
     public decimal BasicSalary { get; set; }
+    public decimal DailyRate { get; set; }
     public decimal ShiftAllowance { get; set; }
     public decimal OTRatePerHour { get; set; }
     public decimal SundayPhOtDays { get; set; }
@@ -75,7 +79,7 @@ public class CreateEmployeeRequest
     public decimal DeductionNoWork4Days { get; set; }
     public decimal AdvanceSalary { get; set; }
     public int StandardWorkHours { get; set; } = 8;
-    public DateOnly JoinDate { get; set; }
+    public DateOnly? JoinDate { get; set; }
 }
 
 public class UpdateEmployeeRequest : CreateEmployeeRequest
@@ -165,6 +169,8 @@ public class PayrollRecordDto
     public string EmployeeCode { get; set; } = string.Empty;
     public string DepartmentName { get; set; } = string.Empty;
     public string Position { get; set; } = string.Empty;
+    public string PayrollProfileName { get; set; } = string.Empty;
+    public string SalaryMode { get; set; } = "Monthly";
     public int Month { get; set; }
     public int Year { get; set; }
     public int WorkingDays { get; set; }

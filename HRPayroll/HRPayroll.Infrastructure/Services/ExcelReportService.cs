@@ -23,11 +23,16 @@ public class ExcelReportService : IExcelReportService
 
     public async Task<byte[]> GenerateMonthlyReportAsync(ExcelReportRequest req)
     {
-        var employees = await _db.Employees
-            .Include(e => e.Department)
-            .Where(e => e.Status == "Active" &&
-                        (req.EmployeeIds == null || req.EmployeeIds.Contains(e.Id)))
-            .OrderBy(e => e.EmployeeCode)
+        var payrolls = await _db.PayrollRecords
+            .Include(p => p.Employee).ThenInclude(e => e.Department)
+            .Include(p => p.EmployeePayrollProfile)
+            .Where(p => p.Employee.Status == "Active" &&
+                        p.EmployeePayrollProfile.Status == "Active" &&
+                        p.Month == req.Month &&
+                        p.Year == req.Year &&
+                        (req.EmployeeIds == null || req.EmployeeIds.Contains(p.EmployeeId)))
+            .OrderBy(p => p.Employee.EmployeeCode)
+            .ThenBy(p => p.EmployeePayrollProfile.ProfileName)
             .ToListAsync();
 
         var monthName = new DateTime(req.Year, req.Month, 1).ToString("MMMM yyyy");
@@ -49,18 +54,23 @@ public class ExcelReportService : IExcelReportService
         var totalBg = XLColor.FromHtml("#FFF8DC");          // gold tint
         var summaryHeaderBg = XLColor.FromHtml("#0D47A1");  // dark blue
 
-        foreach (var emp in employees)
+        if (payrolls.Count == 0)
         {
+            throw new InvalidOperationException("No payroll records were found for the selected period.");
+        }
+
+        foreach (var payroll in payrolls)
+        {
+            var emp = payroll.Employee;
+            var profile = payroll.EmployeePayrollProfile;
             var attendances = await _db.Attendances
                 .Where(a => a.EmployeeId == emp.Id && a.Date.Month == req.Month && a.Date.Year == req.Year)
                 .OrderBy(a => a.Date)
                 .ToListAsync();
 
-            var payroll = await _db.PayrollRecords
-                .FirstOrDefaultAsync(p => p.EmployeeId == emp.Id && p.Month == req.Month && p.Year == req.Year);
-
-            // Sheet name: truncate if needed
-            var sheetName = $"{emp.EmployeeCode} - {emp.FirstName}"[..Math.Min(31, $"{emp.EmployeeCode} - {emp.FirstName}".Length)];
+            var profileName = string.IsNullOrWhiteSpace(profile.ProfileName) ? "Primary" : profile.ProfileName;
+            var sheetTitle = $"{emp.EmployeeCode} - {profileName}";
+            var sheetName = sheetTitle[..Math.Min(31, sheetTitle.Length)];
             var ws = workbook.Worksheets.Add(sheetName);
 
             // ── Page Title ───────────────────────────────────────────
@@ -91,10 +101,11 @@ public class ExcelReportService : IExcelReportService
             var infoData = new[]
             {
                 ("Employee Code:", emp.EmployeeCode, "Full Name:", $"{emp.FirstName} {emp.LastName}"),
+                ("Payroll Profile:", profileName, "Salary Mode:", string.IsNullOrWhiteSpace(profile.SalaryMode) ? "Monthly" : profile.SalaryMode),
                 ("Department:", emp.Department?.Name ?? "", "Position:", emp.Position),
-                ("Join Date:", emp.JoinDate.ToString("dd/MM/yyyy"), "Basic Salary:", $"SGD {emp.BasicSalary:N2}"),
-                ("OT Rate/Hour:", $"SGD {emp.OTRatePerHour:N2}", "Std. Work Hours:", $"{emp.StandardWorkHours} hrs/day"),
-                ("Report Period:", monthName, "Status:", emp.Status)
+                ("Join Date:", emp.JoinDate?.ToString("dd/MM/yyyy") ?? "", "Basic Salary:", $"SGD {payroll.BasicSalary:N2}"),
+                ("Daily Rate:", $"SGD {payroll.DailyRate:N2}", "OT Rate/Hour:", $"SGD {(profile.OTRatePerHour > 0 ? profile.OTRatePerHour : emp.OTRatePerHour):N2}"),
+                ("Std. Work Hours:", $"{profile.StandardWorkHours} hrs/day", "Report Period:", monthName)
             };
 
             int infoRow = 3;
@@ -284,18 +295,27 @@ public class ExcelReportService : IExcelReportService
             // Payroll summary rows
             decimal workDays = Enumerable.Range(1, daysInMonth)
                 .Count(d => new DateTime(req.Year, req.Month, d).DayOfWeek != DayOfWeek.Sunday);
-            decimal dailyRate = payroll?.DailyRate ?? (workDays > 0 ? emp.BasicSalary / workDays : 0);
-            decimal otAmount = payroll?.OTAmount ?? (totalOTHours * emp.OTRatePerHour);
-            decimal deductions = payroll?.Deductions ?? (absentCount * dailyRate);
-            decimal grossSalary = payroll?.GrossSalary ?? (emp.BasicSalary + otAmount - deductions);
-            decimal netSalary = payroll?.NetSalary ?? grossSalary;
+            decimal dailyRate = payroll.DailyRate > 0
+                ? payroll.DailyRate
+                : (string.Equals(profile.SalaryMode, "Daily", StringComparison.OrdinalIgnoreCase)
+                    ? profile.DailyRate
+                    : (workDays > 0 ? payroll.BasicSalary / workDays : 0));
+            decimal otRate = profile.OTRatePerHour > 0
+                ? profile.OTRatePerHour
+                : (string.Equals(profile.SalaryMode, "Daily", StringComparison.OrdinalIgnoreCase)
+                    ? Math.Round((profile.DailyRate > 0 ? profile.DailyRate : dailyRate) / 8m * 1.5m, 2)
+                    : Math.Round(payroll.BasicSalary / 24m / 11m * 1.5m, 2));
+            decimal otAmount = payroll.OTAmount > 0 ? payroll.OTAmount : (totalOTHours * otRate);
+            decimal deductions = payroll.Deductions > 0 ? payroll.Deductions : (absentCount * dailyRate);
+            decimal grossSalary = payroll.GrossSalary > 0 ? payroll.GrossSalary : (payroll.BasicSalary + otAmount - deductions);
+            decimal netSalary = payroll.NetSalary > 0 ? payroll.NetSalary : grossSalary;
 
             var summaryItems = new[]
             {
                 ("Working Days in Month", workDays.ToString("N0"), "Present Days", presentCount.ToString()),
                 ("Absent Days", absentCount.ToString(), "Leave Days", leaveCount.ToString()),
                 ("Total Work Hours", totalWorkHours.ToString("N2"), "Total OT Hours", totalOTHours.ToString("N2")),
-                ("Basic Salary (SGD)", emp.BasicSalary.ToString("N2"), "Daily Rate (SGD)", dailyRate.ToString("N2")),
+                ("Basic Salary (SGD)", payroll.BasicSalary.ToString("N2"), "Daily Rate (SGD)", dailyRate.ToString("N2")),
                 ("OT Amount (SGD)", otAmount.ToString("N2"), "Deductions (SGD)", deductions.ToString("N2")),
                 ("Gross Salary (SGD)", grossSalary.ToString("N2"), "Net Salary (SGD)", netSalary.ToString("N2"))
             };
@@ -369,23 +389,23 @@ public class ExcelReportService : IExcelReportService
 
     public async Task<byte[]> GeneratePaymentVoucherPdfAsync(ExcelReportRequest req)
     {
-        var employees = await _db.Employees
-            .Include(e => e.Department)
-            .Where(e => e.Status == "Active" &&
-                        (req.EmployeeIds == null || req.EmployeeIds.Contains(e.Id)))
-            .OrderBy(e => e.EmployeeCode)
+        var payrolls = await _db.PayrollRecords
+            .Include(p => p.Employee).ThenInclude(e => e.Department)
+            .Include(p => p.EmployeePayrollProfile)
+            .Where(p => p.Employee.Status == "Active" &&
+                        p.EmployeePayrollProfile.Status == "Active" &&
+                        p.Month == req.Month &&
+                        p.Year == req.Year &&
+                        (req.EmployeeIds == null || req.EmployeeIds.Contains(p.EmployeeId)))
+            .OrderBy(p => p.Employee.EmployeeCode)
+            .ThenBy(p => p.EmployeePayrollProfile.ProfileName)
             .ToListAsync();
 
         var vouchers = new List<PaymentVoucherData>();
-        foreach (var emp in employees)
+        foreach (var payroll in payrolls)
         {
-            var payroll = await _db.PayrollRecords
-                .FirstOrDefaultAsync(p => p.EmployeeId == emp.Id && p.Month == req.Month && p.Year == req.Year);
-
-            if (payroll == null)
-            {
-                continue;
-            }
+            var emp = payroll.Employee;
+            var profile = payroll.EmployeePayrollProfile;
 
             var periodLabel = new DateTime(req.Year, req.Month, 1).ToString("MMM yyyy");
             var payTo = string.IsNullOrWhiteSpace(emp.FinNo)
@@ -398,28 +418,36 @@ public class ExcelReportService : IExcelReportService
                 : Enumerable.Range(1, DateTime.DaysInMonth(req.Year, req.Month))
                     .Count(d => new DateTime(req.Year, req.Month, d).DayOfWeek != DayOfWeek.Sunday);
 
+            var salaryMode = string.IsNullOrWhiteSpace(profile.SalaryMode) ? "Monthly" : profile.SalaryMode;
+            var otRate = payroll.TotalOTHours > 0
+                ? (profile.OTRatePerHour > 0 ? profile.OTRatePerHour : payroll.OTAmount / payroll.TotalOTHours)
+                : profile.OTRatePerHour;
+            var baseLabel = salaryMode.Equals("Daily", StringComparison.OrdinalIgnoreCase)
+                ? $"Salary For {periodLabel}"
+                : $"Monthly Salary ({periodLabel})";
+            var baseAmount = payroll.BasicSalary;
             var dailyRate = payroll.DailyRate > 0
                 ? payroll.DailyRate
-                : workingDays > 0 ? payroll.BasicSalary / workingDays : 0;
+                : (salaryMode.Equals("Daily", StringComparison.OrdinalIgnoreCase) ? profile.DailyRate : (workingDays > 0 ? payroll.BasicSalary / workingDays : 0));
 
-            var attendanceOtHours = payroll.TotalOTHours - (emp.SundayPhOtDays * emp.StandardWorkHours) - emp.PublicHolidayOtHours;
+            var attendanceOtHours = payroll.TotalOTHours - (profile.SundayPhOtDays * profile.StandardWorkHours) - profile.PublicHolidayOtHours;
             if (attendanceOtHours < 0) attendanceOtHours = 0;
 
-            var attendanceOtAmount = Math.Round(attendanceOtHours * emp.OTRatePerHour, 2, MidpointRounding.AwayFromZero);
-            var sundayPhAmount = Math.Round(emp.SundayPhOtDays * emp.StandardWorkHours * emp.OTRatePerHour, 2, MidpointRounding.AwayFromZero);
-            var publicHolidayAmount = Math.Round(emp.PublicHolidayOtHours * emp.OTRatePerHour, 2, MidpointRounding.AwayFromZero);
+            var attendanceOtAmount = Math.Round(attendanceOtHours * otRate, 2, MidpointRounding.AwayFromZero);
+            var sundayPhAmount = Math.Round(profile.SundayPhOtDays * profile.StandardWorkHours * otRate, 2, MidpointRounding.AwayFromZero);
+            var publicHolidayAmount = Math.Round(profile.PublicHolidayOtHours * otRate, 2, MidpointRounding.AwayFromZero);
             var noWorkDeduction = Math.Round(payroll.AbsentDays * dailyRate, 2, MidpointRounding.AwayFromZero);
-            var fixedDeduction = Math.Round(emp.DeductionNoWork4Days, 2, MidpointRounding.AwayFromZero);
-            var advanceSalary = Math.Round(emp.AdvanceSalary, 2, MidpointRounding.AwayFromZero);
+            var fixedDeduction = Math.Round(profile.DeductionNoWork4Days, 2, MidpointRounding.AwayFromZero);
+            var advanceSalary = Math.Round(profile.AdvanceSalary, 2, MidpointRounding.AwayFromZero);
 
             var lines = new List<VoucherLineItem>
             {
-                new($"Monthly Salary ({periodLabel})", payroll.BasicSalary, false),
-                new("Shift Allowance", emp.ShiftAllowance, false),
-                new($"Total OT Hours {attendanceOtHours:N1} ({emp.OTRatePerHour:N2}/hr)", attendanceOtAmount, false),
+                new(baseLabel, baseAmount, false),
+                new("Shift Allowance", profile.ShiftAllowance, false),
+                new($"Total OT Hours {attendanceOtHours:N1} ({otRate:N2}/hr)", attendanceOtAmount, false),
                 new("OT @ Sunday/P.H (days)", sundayPhAmount, false),
                 new("OT @ Public Holiday (hrs)", publicHolidayAmount, false),
-                new("Transportation Fee", emp.TransportationFee, false),
+                new("Transportation Fee", profile.TransportationFee, false),
                 new(payroll.AbsentDays > 0
                     ? $"Deduction (No Work / {payroll.AbsentDays} days)"
                     : "Deduction (No Work)", -noWorkDeduction, true),

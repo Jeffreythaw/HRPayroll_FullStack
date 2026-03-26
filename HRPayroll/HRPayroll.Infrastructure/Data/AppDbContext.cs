@@ -10,6 +10,7 @@ public class AppDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<Department> Departments => Set<Department>();
     public DbSet<Employee> Employees => Set<Employee>();
+    public DbSet<EmployeePayrollProfile> EmployeePayrollProfiles => Set<EmployeePayrollProfile>();
     public DbSet<Attendance> Attendances => Set<Attendance>();
     public DbSet<AttendanceLookup> AttendanceLookups => Set<AttendanceLookup>();
     public DbSet<PayrollRecord> PayrollRecords => Set<PayrollRecord>();
@@ -41,7 +42,9 @@ public class AppDbContext : DbContext
             e.HasIndex(emp => emp.EmployeeCode).IsUnique();
             e.HasIndex(emp => emp.Email).IsUnique();
             e.Property(emp => emp.FinNo).HasMaxLength(100);
+            e.Property(emp => emp.SalaryMode).HasMaxLength(20).HasDefaultValue("Monthly");
             e.Property(emp => emp.BasicSalary).HasColumnType("decimal(18,2)");
+            e.Property(emp => emp.DailyRate).HasColumnType("decimal(18,2)");
             e.Property(emp => emp.ShiftAllowance).HasColumnType("decimal(18,2)");
             e.Property(emp => emp.OTRatePerHour).HasColumnType("decimal(18,2)");
             e.Property(emp => emp.SundayPhOtDays).HasColumnType("decimal(5,2)");
@@ -49,10 +52,32 @@ public class AppDbContext : DbContext
             e.Property(emp => emp.TransportationFee).HasColumnType("decimal(18,2)");
             e.Property(emp => emp.DeductionNoWork4Days).HasColumnType("decimal(18,2)");
             e.Property(emp => emp.AdvanceSalary).HasColumnType("decimal(18,2)");
+            e.Property(emp => emp.JoinDate).IsRequired(false);
             e.HasOne(emp => emp.Department)
              .WithMany(d => d.Employees)
              .HasForeignKey(emp => emp.DepartmentId)
              .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<EmployeePayrollProfile>(e =>
+        {
+            e.ToTable("SLE_EmployeePayrollProfiles");
+            e.HasIndex(p => new { p.EmployeeId, p.ProfileName }).IsUnique();
+            e.Property(p => p.ProfileName).HasMaxLength(100).IsRequired();
+            e.Property(p => p.SalaryMode).HasMaxLength(20).HasDefaultValue("Monthly");
+            e.Property(p => p.BasicSalary).HasColumnType("decimal(18,2)");
+            e.Property(p => p.DailyRate).HasColumnType("decimal(18,2)");
+            e.Property(p => p.ShiftAllowance).HasColumnType("decimal(18,2)");
+            e.Property(p => p.OTRatePerHour).HasColumnType("decimal(18,2)");
+            e.Property(p => p.SundayPhOtDays).HasColumnType("decimal(5,2)");
+            e.Property(p => p.PublicHolidayOtHours).HasColumnType("decimal(5,2)");
+            e.Property(p => p.TransportationFee).HasColumnType("decimal(18,2)");
+            e.Property(p => p.DeductionNoWork4Days).HasColumnType("decimal(18,2)");
+            e.Property(p => p.AdvanceSalary).HasColumnType("decimal(18,2)");
+            e.HasOne(p => p.Employee)
+             .WithMany(emp => emp.PayrollProfiles)
+             .HasForeignKey(p => p.EmployeeId)
+             .OnDelete(DeleteBehavior.Cascade);
         });
 
         // Attendance
@@ -84,7 +109,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<PayrollRecord>(e =>
         {
             e.ToTable("SLE_PayrollRecords");
-            e.HasIndex(p => new { p.EmployeeId, p.Month, p.Year }).IsUnique();
+            e.HasIndex(p => new { p.EmployeePayrollProfileId, p.Month, p.Year }).IsUnique();
             e.Property(p => p.BasicSalary).HasColumnType("decimal(18,2)");
             e.Property(p => p.DailyRate).HasColumnType("decimal(18,2)");
             e.Property(p => p.OTAmount).HasColumnType("decimal(18,2)");
@@ -97,6 +122,10 @@ public class AppDbContext : DbContext
              .WithMany(emp => emp.PayrollRecords)
              .HasForeignKey(p => p.EmployeeId)
              .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(p => p.EmployeePayrollProfile)
+             .WithMany(profile => profile.PayrollRecords)
+             .HasForeignKey(p => p.EmployeePayrollProfileId)
+             .OnDelete(DeleteBehavior.Restrict);
         });
 
         // Seed default admin user (password: Admin@123)

@@ -13,8 +13,10 @@ type EmployeeFormValues = {
   finNo?: string;
   phone?: string;
   departmentId: number;
-  joinDate: string;
+  joinDate?: string;
+  salaryMode: string;
   basicSalary: number;
+  dailyRate: number;
   shiftAllowance: number;
   sundayPhOtDays: number;
   publicHolidayOtHours: number;
@@ -219,8 +221,10 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
     defaultValues: {
       name: '',
       finNo: '',
-      joinDate: new Date().toISOString().split('T')[0],
+      joinDate: '',
+      salaryMode: 'Monthly',
       basicSalary: 0,
+      dailyRate: 0,
       shiftAllowance: 0,
       sundayPhOtDays: 0,
       publicHolidayOtHours: 0,
@@ -231,8 +235,12 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
       status: 'Active',
     }
   });
+  const salaryMode = watch('salaryMode') || 'Monthly';
   const basicSalary = watch('basicSalary') || 0;
-  const autoOtRate = Math.max(0, (basicSalary / 24 / 11) * 1.5);
+  const dailyRate = watch('dailyRate') || 0;
+  const autoOtRate = Math.max(0, salaryMode === 'Daily'
+    ? (dailyRate / 8) * 1.5
+    : (basicSalary / 24 / 11) * 1.5);
 
   useEffect(() => {
     if (employee) {
@@ -241,14 +249,16 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
         finNo: employee.finNo || '',
         phone: employee.phone,
         departmentId: employee.departmentId,
+        salaryMode: employee.salaryMode || (employee.dailyRate > 0 ? 'Daily' : 'Monthly'),
         basicSalary: employee.basicSalary,
+        dailyRate: employee.dailyRate,
         shiftAllowance: employee.shiftAllowance,
         sundayPhOtDays: employee.sundayPhOtDays,
         publicHolidayOtHours: employee.publicHolidayOtHours,
         transportationFee: employee.transportationFee,
         deductionNoWork4Days: employee.deductionNoWork4Days,
         advanceSalary: employee.advanceSalary,
-        joinDate: employee.joinDate,
+        joinDate: employee.joinDate || '',
         status: employee.status,
       });
     } else {
@@ -257,7 +267,9 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
         finNo: '',
         phone: '',
         departmentId: 0,
+        salaryMode: 'Monthly',
         basicSalary: 0,
+        dailyRate: 0,
         shiftAllowance: 0,
         sundayPhOtDays: 0,
         publicHolidayOtHours: 0,
@@ -265,7 +277,7 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
         deductionNoWork4Days: 0,
         advanceSalary: 0,
         status: 'Active',
-        joinDate: new Date().toISOString().split('T')[0],
+        joinDate: '',
       });
     }
   }, [employee, reset]);
@@ -297,7 +309,9 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
         phone: data.phone,
         departmentId: data.departmentId,
         position: isEdit && employee ? employee.position : 'Employee',
+        salaryMode: data.salaryMode,
         basicSalary: data.basicSalary,
+        dailyRate: data.dailyRate,
         shiftAllowance: data.shiftAllowance,
         otRatePerHour: autoOtRate,
         sundayPhOtDays: data.sundayPhOtDays,
@@ -306,7 +320,7 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
         deductionNoWork4Days: data.deductionNoWork4Days,
         advanceSalary: data.advanceSalary,
         standardWorkHours: 8,
-        joinDate: data.joinDate,
+        joinDate: data.joinDate || null,
       };
 
       if (isEdit && employee) {
@@ -362,8 +376,8 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
                   {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
               </FormField>
-              <FormField label="Join Date" error={errors.joinDate?.message} required>
-                <input {...register('joinDate', { required: 'Required' })} type="date" className="input" />
+              <FormField label="Join Date">
+                <input {...register('joinDate')} type="date" className="input" />
               </FormField>
             </div>
           </div>
@@ -371,8 +385,41 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
           <div>
             <h3 className="text-sm font-semibold text-slate-700 mb-3">Salary & Allowances</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField label="Monthly Salary BASIC S$" error={errors.basicSalary?.message} required>
-                <input {...register('basicSalary', { required: 'Required', valueAsNumber: true, min: { value: 0, message: 'Must be positive' } })} type="number" step="0.01" className="input" placeholder="3000.00" />
+              <FormField label="Salary Mode" required>
+                <select {...register('salaryMode')} className="input">
+                  <option value="Monthly">Monthly</option>
+                  <option value="Daily">Daily</option>
+                </select>
+              </FormField>
+              <FormField
+                label={salaryMode === 'Daily' ? 'Monthly Salary BASIC S$ (leave 0 for daily staff)' : 'Monthly Salary BASIC S$'}
+                error={errors.basicSalary?.message}
+                required={salaryMode === 'Monthly'}
+              >
+                <input
+                  {...register('basicSalary', {
+                    required: salaryMode === 'Monthly' ? 'Required' : false,
+                    valueAsNumber: true,
+                    min: { value: 0, message: 'Must be positive' }
+                  })}
+                  type="number"
+                  step="0.01"
+                  className="input"
+                  placeholder="3000.00"
+                />
+              </FormField>
+              <FormField label="Daily Rate S$" error={errors.dailyRate?.message} required={salaryMode === 'Daily'}>
+                <input
+                  {...register('dailyRate', {
+                    required: salaryMode === 'Daily' ? 'Required' : false,
+                    valueAsNumber: true,
+                    min: { value: 0, message: 'Must be positive' }
+                  })}
+                  type="number"
+                  step="0.01"
+                  className="input"
+                  placeholder={salaryMode === 'Daily' ? '24.00' : '0.00'}
+                />
               </FormField>
               <FormField label="Shift Allowance S$">
                 <input {...register('shiftAllowance', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
@@ -389,7 +436,9 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">OT Rate / Hour</p>
                 <p className="mt-2 text-lg font-semibold text-slate-900">{formatCurrency(autoOtRate)}</p>
-                <p className="mt-1 text-xs text-slate-500">Auto: basic / 24 / 11 x 1.5</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Auto: {salaryMode === 'Daily' ? 'daily rate / 8 x 1.5' : 'basic / 24 / 11 x 1.5'}
+                </p>
               </div>
             </div>
           </div>

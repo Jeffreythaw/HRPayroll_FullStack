@@ -133,11 +133,13 @@ using (var scope = app.Services.CreateScope())
         db.Database.EnsureCreated();
         SeedLocalData(db);
         SeedData.SeedAttendanceLookups(db);
+        SeedData.SeedPayrollProfiles(db);
     }
     else
     {
         db.Database.Migrate();
         SeedData.SeedAttendanceLookups(db);
+        SeedData.SeedPayrollProfiles(db);
     }
 }
 

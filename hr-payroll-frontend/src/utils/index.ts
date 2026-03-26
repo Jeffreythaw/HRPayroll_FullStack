@@ -7,7 +7,7 @@ export function formatCurrency(v: number) {
   return new Intl.NumberFormat('en-SG', { style: 'currency', currency: 'SGD', minimumFractionDigits: 2 }).format(v);
 }
 
-export function formatDate(d: string) {
+export function formatDate(d?: string | null) {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' });
 }

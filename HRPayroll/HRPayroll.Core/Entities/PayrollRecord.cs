@@ -4,6 +4,7 @@ public class PayrollRecord
 {
     public int Id { get; set; }
     public int EmployeeId { get; set; }
+    public int EmployeePayrollProfileId { get; set; }
     public int Month { get; set; }
     public int Year { get; set; }
     public int WorkingDays { get; set; }
@@ -24,4 +25,5 @@ public class PayrollRecord
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     public Employee Employee { get; set; } = null!;
+    public EmployeePayrollProfile EmployeePayrollProfile { get; set; } = null!;
 }

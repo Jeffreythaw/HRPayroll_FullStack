@@ -37,7 +37,9 @@ export interface Employee {
   departmentId: number;
   departmentName: string;
   position: string;
+  salaryMode: string;
   basicSalary: number;
+  dailyRate: number;
   shiftAllowance: number;
   otRatePerHour: number;
   sundayPhOtDays: number;
@@ -46,7 +48,7 @@ export interface Employee {
   deductionNoWork4Days: number;
   advanceSalary: number;
   standardWorkHours: number;
-  joinDate: string;
+  joinDate?: string | null;
   status: string;
 }
 
@@ -58,7 +60,9 @@ export interface CreateEmployeeRequest {
   phone?: string;
   departmentId: number;
   position: string;
+  salaryMode: string;
   basicSalary: number;
+  dailyRate: number;
   shiftAllowance: number;
   otRatePerHour: number;
   sundayPhOtDays: number;
@@ -67,7 +71,7 @@ export interface CreateEmployeeRequest {
   deductionNoWork4Days: number;
   advanceSalary: number;
   standardWorkHours: number;
-  joinDate: string;
+  joinDate?: string | null;
 }
 
 export interface UpdateEmployeeRequest extends CreateEmployeeRequest {
@@ -149,6 +153,8 @@ export interface PayrollRecord {
   employeeCode: string;
   departmentName: string;
   position: string;
+  payrollProfileName: string;
+  salaryMode: string;
   month: number;
   year: number;
   workingDays: number;
