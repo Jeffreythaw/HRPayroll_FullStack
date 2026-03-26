@@ -16,6 +16,47 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+async function saveBlob(blob: Blob, filename: string) {
+  const anyWindow = window as Window & {
+    showSaveFilePicker?: (options: {
+      suggestedName?: string;
+      types?: Array<{
+        description?: string;
+        accept: Record<string, string[]>;
+      }>;
+    }) => Promise<FileSystemFileHandle>;
+  };
+
+  if (typeof anyWindow.showSaveFilePicker === 'function') {
+    const handle = await anyWindow.showSaveFilePicker({
+      suggestedName: filename,
+      types: [
+        {
+          description: filename.endsWith('.pdf') ? 'PDF document' : 'Spreadsheet',
+          accept: {
+            [filename.endsWith('.pdf') ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']:
+              [filename.split('.').pop() === 'pdf' ? '.pdf' : '.xlsx'],
+          },
+        },
+      ],
+    });
+
+    const writable = await handle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+    return;
+  }
+
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
 // ── Request interceptor: attach JWT ───────────────────────────
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
@@ -103,27 +144,13 @@ export const payrollApi = {
 export const reportApi = {
   generateExcel: async (data: ExcelReportRequest) => {
     const response = await api.post('/reports/excel', data, { responseType: 'blob' });
-    const url = window.URL.createObjectURL(new Blob([response.data]));
-    const link = document.createElement('a');
-    link.href = url;
     const monthName = new Date(data.year, data.month - 1).toLocaleString('default', { month: 'long' });
-    link.setAttribute('download', `Payroll_Report_${monthName}_${data.year}.xlsx`);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
+    await saveBlob(new Blob([response.data]), `Payroll_Report_${monthName}_${data.year}.xlsx`);
   },
   generatePaymentVoucher: async (data: ExcelReportRequest) => {
     const response = await api.post('/reports/payment-voucher', data, { responseType: 'blob' });
-    const url = window.URL.createObjectURL(new Blob([response.data]));
-    const link = document.createElement('a');
-    link.href = url;
     const monthName = new Date(data.year, data.month - 1).toLocaleString('default', { month: 'short' });
-    link.setAttribute('download', `Payment_Voucher_${monthName}_${data.year}.pdf`);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
+    await saveBlob(new Blob([response.data]), `Payment_Voucher_${monthName}_${data.year}.pdf`);
   },
 };
 

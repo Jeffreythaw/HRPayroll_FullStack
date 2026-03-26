@@ -37,8 +37,9 @@ export default function ReportsPage() {
     try {
       await reportApi.generateExcel(buildRequest());
       const count = selectedIds.length || employees.length;
-      toast.success(`Excel report generated for ${count} employee(s)`);
-    } catch {
+      toast.success(`Excel report saved for ${count} employee(s)`);
+    } catch (err) {
+      if ((err as { name?: string })?.name === 'AbortError') return;
       toast.error('Failed to generate report');
     } finally {
       setGenerating(false);
@@ -50,8 +51,9 @@ export default function ReportsPage() {
     try {
       await reportApi.generatePaymentVoucher(buildRequest());
       const count = selectedIds.length || employees.length;
-      toast.success(`Payment voucher generated for ${count} employee(s)`);
-    } catch {
+      toast.success(`Payment voucher saved for ${count} employee(s)`);
+    } catch (err) {
+      if ((err as { name?: string })?.name === 'AbortError') return;
       toast.error('Failed to generate payment voucher');
     } finally {
       setGenerating(false);
@@ -228,7 +230,7 @@ export default function ReportsPage() {
           </div>
 
           <p className="text-xs text-center text-slate-400">
-            The file will download automatically to your browser.
+            Supported browsers will ask where to save the file. Otherwise it will download to your default Downloads folder.
           </p>
         </div>
       </div>
