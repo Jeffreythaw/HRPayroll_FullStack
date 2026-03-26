@@ -3,13 +3,23 @@ using HRPayroll.Core.DTOs;
 using HRPayroll.Core.Interfaces;
 using HRPayroll.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 
 namespace HRPayroll.Infrastructure.Services;
 
 public class ExcelReportService : IExcelReportService
 {
     private readonly AppDbContext _db;
-    public ExcelReportService(AppDbContext db) => _db = db;
+    private readonly IConfiguration _configuration;
+
+    public ExcelReportService(AppDbContext db, IConfiguration configuration)
+    {
+        _db = db;
+        _configuration = configuration;
+    }
 
     public async Task<byte[]> GenerateMonthlyReportAsync(ExcelReportRequest req)
     {
@@ -357,9 +367,241 @@ public class ExcelReportService : IExcelReportService
         return stream.ToArray();
     }
 
+    public async Task<byte[]> GeneratePaymentVoucherPdfAsync(ExcelReportRequest req)
+    {
+        var employees = await _db.Employees
+            .Include(e => e.Department)
+            .Where(e => e.Status == "Active" &&
+                        (req.EmployeeIds == null || req.EmployeeIds.Contains(e.Id)))
+            .OrderBy(e => e.EmployeeCode)
+            .ToListAsync();
+
+        var vouchers = new List<PaymentVoucherData>();
+        foreach (var emp in employees)
+        {
+            var payroll = await _db.PayrollRecords
+                .FirstOrDefaultAsync(p => p.EmployeeId == emp.Id && p.Month == req.Month && p.Year == req.Year);
+
+            if (payroll == null)
+            {
+                continue;
+            }
+
+            var periodLabel = new DateTime(req.Year, req.Month, 1).ToString("MMM yyyy");
+            var payTo = string.IsNullOrWhiteSpace(emp.FinNo)
+                ? $"{emp.FirstName} {emp.LastName}".Trim()
+                : $"{emp.FirstName} {emp.LastName} ({emp.FinNo})".Trim();
+            var processedAt = payroll.ProcessedAt == default ? DateTime.UtcNow : payroll.ProcessedAt;
+            var voucherDate = processedAt.AddHours(8).Date;
+            var workingDays = payroll.WorkingDays > 0
+                ? payroll.WorkingDays
+                : Enumerable.Range(1, DateTime.DaysInMonth(req.Year, req.Month))
+                    .Count(d => new DateTime(req.Year, req.Month, d).DayOfWeek != DayOfWeek.Sunday);
+
+            var dailyRate = payroll.DailyRate > 0
+                ? payroll.DailyRate
+                : workingDays > 0 ? payroll.BasicSalary / workingDays : 0;
+
+            var attendanceOtHours = payroll.TotalOTHours - (emp.SundayPhOtDays * emp.StandardWorkHours) - emp.PublicHolidayOtHours;
+            if (attendanceOtHours < 0) attendanceOtHours = 0;
+
+            var attendanceOtAmount = Math.Round(attendanceOtHours * emp.OTRatePerHour, 2, MidpointRounding.AwayFromZero);
+            var sundayPhAmount = Math.Round(emp.SundayPhOtDays * emp.StandardWorkHours * emp.OTRatePerHour, 2, MidpointRounding.AwayFromZero);
+            var publicHolidayAmount = Math.Round(emp.PublicHolidayOtHours * emp.OTRatePerHour, 2, MidpointRounding.AwayFromZero);
+            var noWorkDeduction = Math.Round(payroll.AbsentDays * dailyRate, 2, MidpointRounding.AwayFromZero);
+            var fixedDeduction = Math.Round(emp.DeductionNoWork4Days, 2, MidpointRounding.AwayFromZero);
+            var advanceSalary = Math.Round(emp.AdvanceSalary, 2, MidpointRounding.AwayFromZero);
+
+            var lines = new List<VoucherLineItem>
+            {
+                new($"Monthly Salary ({periodLabel})", payroll.BasicSalary, false),
+                new("Shift Allowance", emp.ShiftAllowance, false),
+                new($"Total OT Hours {attendanceOtHours:N1} ({emp.OTRatePerHour:N2}/hr)", attendanceOtAmount, false),
+                new("OT @ Sunday/P.H (days)", sundayPhAmount, false),
+                new("OT @ Public Holiday (hrs)", publicHolidayAmount, false),
+                new("Transportation Fee", emp.TransportationFee, false),
+                new(payroll.AbsentDays > 0
+                    ? $"Deduction (No Work / {payroll.AbsentDays} days)"
+                    : "Deduction (No Work)", -noWorkDeduction, true),
+                new("Deduction (No Work / 4 days)", -fixedDeduction, true),
+                new("Advance Salary", -advanceSalary, true)
+            };
+
+            var totalAmount = lines.Sum(x => x.Amount);
+
+            vouchers.Add(new PaymentVoucherData
+            {
+                CompanyName = GetReportSetting("CompanyName", "HR Payroll").ToUpperInvariant(),
+                SignerName = GetReportSetting("SignerName", "HR"),
+                Footnote = GetReportSetting(
+                    "Footnote",
+                    "Please review this payslip carefully. If you have any questions or concerns regarding your salary, please contact HR within 7 working days. No-reply if acceptance."),
+                PaymentMethodLabel = GetReportSetting("PaymentMethodLabel", "Cheque / Cash :"),
+                PaymentMethodValue = GetReportSetting("PaymentMethodValue", string.Empty),
+                VoucherNumber = $"PV{voucherDate:yyMM}{vouchers.Count + 1:00}",
+                VoucherDate = voucherDate,
+                PayTo = payTo,
+                PeriodLabel = periodLabel,
+                Lines = lines,
+                TotalAmount = totalAmount
+            });
+        }
+
+        if (vouchers.Count == 0)
+        {
+            throw new InvalidOperationException("No payroll records were found for the selected period.");
+        }
+
+        var document = Document.Create(container =>
+        {
+            foreach (var voucher in vouchers)
+            {
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4);
+                    page.Margin(28);
+                    page.DefaultTextStyle(x => x.FontSize(9));
+                    page.Content().Element(content => RenderVoucher(content, voucher));
+                });
+            }
+        });
+
+        using var stream = new MemoryStream();
+        document.GeneratePdf(stream);
+        return stream.ToArray();
+    }
+
     private static void StyleAllBorders(IXLRange range, XLBorderStyleValues style)
     {
         range.Style.Border.OutsideBorder = style;
         range.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
     }
+
+    private string GetReportSetting(string key, string fallback)
+        => _configuration[$"Report:{key}"]?.Trim() is { Length: > 0 } value ? value : fallback;
+
+    private static void RenderVoucher(IContainer container, PaymentVoucherData voucher)
+    {
+        container.Column(column =>
+        {
+            column.Spacing(8);
+
+            column.Item().AlignCenter().Text(voucher.CompanyName)
+                .SemiBold()
+                .FontSize(15);
+
+            column.Item().AlignCenter().Text("Payment Voucher")
+                .SemiBold()
+                .FontSize(11);
+
+            column.Item().Row(row =>
+            {
+                row.RelativeItem().AlignLeft().Text(text =>
+                {
+                    text.Span("Pay to : ").SemiBold();
+                    text.Span(voucher.PayTo);
+                });
+
+                row.ConstantItem(190).AlignRight().Column(info =>
+                {
+                    info.Item().Row(r =>
+                    {
+                        r.RelativeItem().AlignRight().Text("PV No:").SemiBold();
+                        r.ConstantItem(85).BorderBottom(1).AlignLeft().Text(voucher.VoucherNumber);
+                    });
+
+                    info.Item().PaddingTop(4).Row(r =>
+                    {
+                        r.RelativeItem().AlignRight().Text("Date:").SemiBold();
+                        r.ConstantItem(85).BorderBottom(1).AlignLeft().Text(voucher.VoucherDate.ToString("d/M/yy"));
+                    });
+                });
+            });
+
+            column.Item().Height(1).Background(Colors.Grey.Darken3);
+
+            column.Item().PaddingTop(2).Table(table =>
+            {
+                table.ColumnsDefinition(columns =>
+                {
+                    columns.RelativeColumn(4.6f);
+                    columns.ConstantColumn(28);
+                    columns.ConstantColumn(74);
+                });
+
+                table.Header(header =>
+                {
+                    header.Cell().Background(Colors.Black).Padding(4).Text("Description")
+                        .SemiBold().FontColor(Colors.White).AlignCenter();
+                    header.Cell().Background(Colors.Black).Padding(4).Text("")
+                        .SemiBold().FontColor(Colors.White);
+                    header.Cell().Background(Colors.Black).Padding(4).Text("Amount")
+                        .SemiBold().FontColor(Colors.White).AlignCenter();
+                });
+
+                foreach (var line in voucher.Lines)
+                {
+                    table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten1).Padding(4).Text(line.Label)
+                        .FontColor(line.IsDeduction ? Colors.Red.Darken2 : Colors.Black);
+
+                    table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten1).Padding(4).Text("S$")
+                        .AlignCenter()
+                        .FontColor(line.IsDeduction ? Colors.Red.Darken2 : Colors.Black);
+
+                    table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten1).Padding(4).Text(FormatMoney(line.Amount))
+                        .AlignRight()
+                        .FontColor(line.IsDeduction ? Colors.Red.Darken2 : Colors.Black);
+                }
+
+                table.Cell().ColumnSpan(2).BorderTop(1).Padding(4).AlignLeft().Text(text =>
+                {
+                    text.Span($"{voucher.PaymentMethodLabel} ").SemiBold();
+                    text.Span(voucher.PaymentMethodValue);
+                });
+
+                table.Cell().BorderTop(1).Padding(4).AlignRight().Text(text =>
+                {
+                    text.Span("TOTAL: ").SemiBold();
+                    text.Span("S$ ").SemiBold();
+                    text.Span(FormatMoney(voucher.TotalAmount)).SemiBold();
+                });
+            });
+
+            column.Item().PaddingTop(8).Text(voucher.Footnote)
+                .FontSize(7)
+                .Italic()
+                .FontColor(Colors.Blue.Darken2);
+
+            column.Item().PaddingTop(18).AlignCenter().Text(voucher.SignerName)
+                .SemiBold()
+                .Italic()
+                .FontSize(12);
+
+            column.Item().PaddingTop(14).Row(row =>
+            {
+                row.RelativeItem().PaddingTop(8).BorderTop(1).AlignCenter().Text("Prepaid By");
+                row.RelativeItem().PaddingTop(8).BorderTop(1).AlignCenter().Text("Received By (Sign by Employee)");
+            });
+        });
+    }
+
+    private static string FormatMoney(decimal amount)
+        => Math.Abs(amount) < 0.005m ? "0.00" : amount.ToString("N2");
+}
+
+internal sealed record VoucherLineItem(string Label, decimal Amount, bool IsDeduction);
+
+internal sealed class PaymentVoucherData
+{
+    public string CompanyName { get; set; } = string.Empty;
+    public string SignerName { get; set; } = string.Empty;
+    public string Footnote { get; set; } = string.Empty;
+    public string PaymentMethodLabel { get; set; } = string.Empty;
+    public string PaymentMethodValue { get; set; } = string.Empty;
+    public string VoucherNumber { get; set; } = string.Empty;
+    public DateTime VoucherDate { get; set; }
+    public string PayTo { get; set; } = string.Empty;
+    public string PeriodLabel { get; set; } = string.Empty;
+    public List<VoucherLineItem> Lines { get; set; } = new();
+    public decimal TotalAmount { get; set; }
 }

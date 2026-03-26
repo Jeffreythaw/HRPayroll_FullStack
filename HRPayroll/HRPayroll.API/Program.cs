@@ -2,10 +2,13 @@ using System.Text;
 using HRPayroll.API;
 using HRPayroll.API.Middleware;
 using HRPayroll.Infrastructure;
+using QuestPDF.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+
+QuestPDF.Settings.License = LicenseType.Community;
 
 var builder = WebApplication.CreateBuilder(args);
 

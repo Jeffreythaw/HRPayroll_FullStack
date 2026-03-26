@@ -113,6 +113,18 @@ export const reportApi = {
     link.remove();
     window.URL.revokeObjectURL(url);
   },
+  generatePaymentVoucher: async (data: ExcelReportRequest) => {
+    const response = await api.post('/reports/payment-voucher', data, { responseType: 'blob' });
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    const monthName = new Date(data.year, data.month - 1).toLocaleString('default', { month: 'short' });
+    link.setAttribute('download', `Payment_Voucher_${monthName}_${data.year}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
 };
 
 export default api;

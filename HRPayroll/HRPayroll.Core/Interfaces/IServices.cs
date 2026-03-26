@@ -63,4 +63,5 @@ public interface IDashboardService
 public interface IExcelReportService
 {
     Task<byte[]> GenerateMonthlyReportAsync(ExcelReportRequest request);
+    Task<byte[]> GeneratePaymentVoucherPdfAsync(ExcelReportRequest request);
 }

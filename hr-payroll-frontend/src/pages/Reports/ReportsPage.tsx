@@ -26,14 +26,16 @@ export default function ReportsPage() {
   const toggleAll = () =>
     setSelectedIds(prev => prev.length === employees.length ? [] : employees.map(e => e.id));
 
-  const handleGenerate = async () => {
+  const buildRequest = () => ({
+    month: selMonth,
+    year: selYear,
+    employeeIds: selectedIds.length > 0 ? selectedIds : undefined,
+  });
+
+  const handleGenerateExcel = async () => {
     setGenerating(true);
     try {
-      await reportApi.generateExcel({
-        month: selMonth,
-        year: selYear,
-        employeeIds: selectedIds.length > 0 ? selectedIds : undefined,
-      });
+      await reportApi.generateExcel(buildRequest());
       const count = selectedIds.length || employees.length;
       toast.success(`Excel report generated for ${count} employee(s)`);
     } catch {
@@ -43,14 +45,26 @@ export default function ReportsPage() {
     }
   };
 
+  const handleGenerateVoucher = async () => {
+    setGenerating(true);
+    try {
+      await reportApi.generatePaymentVoucher(buildRequest());
+      const count = selectedIds.length || employees.length;
+      toast.success(`Payment voucher generated for ${count} employee(s)`);
+    } catch {
+      toast.error('Failed to generate payment voucher');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const monthName = MONTHS[selMonth - 1];
-  const allSelected = selectedIds.length === 0 || selectedIds.length === employees.length;
 
   return (
     <div>
       <PageHeader
         title="Reports"
-        subtitle="Generate payroll reports for download"
+        subtitle="Generate payroll reports and payment vouchers for download"
       />
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
@@ -129,13 +143,24 @@ export default function ReportsPage() {
             <div className="space-y-3">
               <div className="bg-slate-50 rounded-lg p-3 text-sm">
                 <p className="text-slate-500 text-xs uppercase font-semibold mb-2">Output Format</p>
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-emerald-600 text-white rounded flex items-center justify-center">
-                    <ExcelIcon />
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-emerald-600 text-white rounded flex items-center justify-center">
+                      <ExcelIcon />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-800 text-xs">Microsoft Excel (.xlsx)</p>
+                      <p className="text-xs text-slate-400">Payroll workbook by employee</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-semibold text-slate-800 text-xs">Microsoft Excel (.xlsx)</p>
-                    <p className="text-xs text-slate-400">Professional formatted workbook</p>
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-navy-800 text-white rounded flex items-center justify-center">
+                      <PdfIcon />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-800 text-xs">Payment Voucher (.pdf)</p>
+                      <p className="text-xs text-slate-400">Per-employee printable voucher</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -180,15 +205,27 @@ export default function ReportsPage() {
           </div>
 
           {/* Generate button */}
-          <button
-            className="btn-success w-full justify-center py-3 text-base font-semibold"
-            onClick={handleGenerate}
-            disabled={generating}
-          >
-            {generating
-              ? <><Spinner size="sm" /> Generating…</>
-              : <><DownloadIcon /> Generate & Download</>}
-          </button>
+          <div className="grid grid-cols-1 gap-3">
+            <button
+              className="btn-success w-full justify-center py-3 text-base font-semibold"
+              onClick={handleGenerateExcel}
+              disabled={generating}
+            >
+              {generating
+                ? <><Spinner size="sm" /> Generating…</>
+                : <><DownloadIcon /> Generate Excel</>}
+            </button>
+
+            <button
+              className="w-full justify-center py-3 text-base font-semibold rounded-xl border border-navy-200 text-navy-800 bg-white hover:bg-navy-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+              onClick={handleGenerateVoucher}
+              disabled={generating}
+            >
+              {generating
+                ? <><Spinner size="sm" /> Generating…</>
+                : <><PdfIcon /> Generate Payment Voucher</>}
+            </button>
+          </div>
 
           <p className="text-xs text-center text-slate-400">
             The file will download automatically to your browser.
@@ -204,3 +241,4 @@ function PeopleIcon()   { return <svg width="15" height="15" viewBox="0 0 24 24"
 function FileIcon()     { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>; }
 function DownloadIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>; }
 function ExcelIcon()    { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>; }
+function PdfIcon()      { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h8"/><path d="M8 17h6"/></svg>; }

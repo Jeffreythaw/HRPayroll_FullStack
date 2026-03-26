@@ -259,4 +259,12 @@ public class ReportsController : ControllerBase
         var fileName = $"Payroll_Report_{new DateTime(req.Year, req.Month, 1):MMM_yyyy}.xlsx";
         return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
     }
+
+    [HttpPost("payment-voucher")]
+    public async Task<IActionResult> GeneratePaymentVoucher([FromBody] ExcelReportRequest req)
+    {
+        var bytes = await _svc.GeneratePaymentVoucherPdfAsync(req);
+        var fileName = $"Payment_Voucher_{new DateTime(req.Year, req.Month, 1):MMM_yyyy}.pdf";
+        return File(bytes, "application/pdf", fileName);
+    }
 }

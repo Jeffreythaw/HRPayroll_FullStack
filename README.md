@@ -9,6 +9,7 @@ Full-stack HR and payroll management system built with ASP.NET Core, EF Core, SQ
 - Backend-only payroll calculation
 - Editable attendance dropdowns for `Site / Project` and `Transport`
 - Dashboard summaries and monthly reports
+- Payment voucher PDF export
 - Excel export for payroll reporting
 
 ## Tech Stack
