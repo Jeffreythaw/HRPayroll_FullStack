@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: hrpayroll-api
+    runtime: docker
+    dockerfilePath: HRPayroll/Dockerfile
+    dockerContext: HRPayroll
+    plan: starter
+    autoDeploy: true
+    healthCheckPath: /swagger/index.html
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: UseLocalDb
+        value: "false"
+      - key: ConnectionStrings__LS
+        sync: false
+      - key: Jwt__Key
+        sync: false
+      - key: Jwt__Issuer
+        value: HRPayrollAPI
+      - key: Jwt__Audience
+        value: HRPayrollClient
