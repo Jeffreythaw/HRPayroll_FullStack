@@ -81,6 +81,17 @@ cd hr-payroll-frontend
 npm run build
 ```
 
+## Deployment
+
+- Frontend: https://hr-payroll-full-stack.vercel.app
+- Backend API: https://hrpayroll-api.onrender.com
+- Health check: https://hrpayroll-api.onrender.com/health
+
+Notes:
+
+- The frontend uses `HashRouter` so Vercel routes work reliably.
+- The backend runs on Render free tier, so the first request after idle time may cold-start.
+
 ## Notes
 
 - Backend payroll calculations are kept on the server.
