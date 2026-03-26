@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
-import { employeeApi, departmentApi } from '../../api';
+import { employeeApi, departmentApi, employeeProfileApi } from '../../api';
 import {
   Modal, ConfirmModal, PageHeader, EmptyState, Spinner, FormField
 } from '../../components/ui';
@@ -36,6 +36,7 @@ export default function EmployeesPage() {
 
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Employee | null>(null);
+  const [profileTarget, setProfileTarget] = useState<Employee | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Employee | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -67,6 +68,7 @@ export default function EmployeesPage() {
 
   const openCreate = () => { setEditing(null); setShowForm(true); };
   const openEdit = (e: Employee) => { setEditing(e); setShowForm(true); };
+  const openProfiles = (e: Employee) => setProfileTarget(e);
   const closeForm = () => { setShowForm(false); setEditing(null); };
 
   const handleDelete = async () => {
@@ -129,6 +131,7 @@ export default function EmployeesPage() {
                 <th className="table-th">Basic Salary</th>
                 <th className="table-th">OT Rate/Hr</th>
                 <th className="table-th">Join Date</th>
+                <th className="table-th">Profiles</th>
                 <th className="table-th">Status</th>
                 <th className="table-th w-24">Actions</th>
               </tr>
@@ -152,6 +155,14 @@ export default function EmployeesPage() {
                   <td className="table-td font-mono font-medium">{formatCurrency(emp.basicSalary)}</td>
                   <td className="table-td font-mono">{formatCurrency(emp.otRatePerHour)}</td>
                   <td className="table-td text-slate-500">{formatDate(emp.joinDate)}</td>
+                  <td className="table-td">
+                    <button
+                      onClick={() => openProfiles(emp)}
+                      className="text-xs font-semibold text-navy-800 hover:underline"
+                    >
+                      Manage Profiles
+                    </button>
+                  </td>
                   <td className="table-td">
                     <span className={statusBadgeClass(emp.status)}>{emp.status}</span>
                   </td>
@@ -188,6 +199,12 @@ export default function EmployeesPage() {
         employee={editing}
         departments={departments}
         onSaved={() => { closeForm(); load(); }}
+      />
+
+      <EmployeeProfilesModal
+        open={!!profileTarget}
+        employee={profileTarget}
+        onClose={() => setProfileTarget(null)}
       />
 
       {/* Delete confirm */}
@@ -467,6 +484,304 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
                 </select>
               </FormField>
             </div>
+          )}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Employee Payroll Profiles Modal ─────────────────────────
+type ProfileFormValues = {
+  profileName: string;
+  salaryMode: string;
+  basicSalary: number;
+  dailyRate: number;
+  shiftAllowance: number;
+  otRatePerHour: number;
+  sundayPhOtDays: number;
+  publicHolidayOtHours: number;
+  transportationFee: number;
+  deductionNoWork4Days: number;
+  advanceSalary: number;
+  standardWorkHours: number;
+  status: string;
+};
+
+function EmployeeProfilesModal({ open, onClose, employee }: { open: boolean; onClose: () => void; employee: Employee | null; }) {
+  const [profiles, setProfiles] = useState<import('../../types').EmployeePayrollProfile[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editingProfile, setEditingProfile] = useState<import('../../types').EmployeePayrollProfile | null>(null);
+
+  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<ProfileFormValues>({
+    defaultValues: {
+      profileName: '',
+      salaryMode: 'Monthly',
+      basicSalary: 0,
+      dailyRate: 0,
+      shiftAllowance: 0,
+      otRatePerHour: 0,
+      sundayPhOtDays: 0,
+      publicHolidayOtHours: 0,
+      transportationFee: 0,
+      deductionNoWork4Days: 0,
+      advanceSalary: 0,
+      standardWorkHours: 8,
+      status: 'Active',
+    }
+  });
+
+  const salaryMode = watch('salaryMode') || 'Monthly';
+  const basicSalary = watch('basicSalary') || 0;
+  const dailyRate = watch('dailyRate') || 0;
+  const autoOtRate = Math.max(0, salaryMode === 'Daily'
+    ? (dailyRate / 8) * 1.5
+    : (basicSalary / 24 / 11) * 1.5);
+
+  const loadProfiles = useCallback(async () => {
+    if (!employee) return;
+    setLoading(true);
+    try {
+      const data = await employeeProfileApi.getAll({ employeeId: employee.id });
+      setProfiles(data);
+    } finally {
+      setLoading(false);
+    }
+  }, [employee]);
+
+  useEffect(() => {
+    if (open && employee) {
+      loadProfiles();
+      setEditingProfile(null);
+      reset({
+        profileName: '',
+        salaryMode: 'Monthly',
+        basicSalary: 0,
+        dailyRate: 0,
+        shiftAllowance: 0,
+        otRatePerHour: 0,
+        sundayPhOtDays: 0,
+        publicHolidayOtHours: 0,
+        transportationFee: 0,
+        deductionNoWork4Days: 0,
+        advanceSalary: 0,
+        standardWorkHours: 8,
+        status: 'Active',
+      });
+    }
+  }, [open, employee, loadProfiles, reset]);
+
+  const startEdit = (profile: import('../../types').EmployeePayrollProfile) => {
+    setEditingProfile(profile);
+    reset({
+      profileName: profile.profileName,
+      salaryMode: profile.salaryMode,
+      basicSalary: profile.basicSalary,
+      dailyRate: profile.dailyRate,
+      shiftAllowance: profile.shiftAllowance,
+      otRatePerHour: profile.otRatePerHour,
+      sundayPhOtDays: profile.sundayPhOtDays,
+      publicHolidayOtHours: profile.publicHolidayOtHours,
+      transportationFee: profile.transportationFee,
+      deductionNoWork4Days: profile.deductionNoWork4Days,
+      advanceSalary: profile.advanceSalary,
+      standardWorkHours: profile.standardWorkHours,
+      status: profile.status,
+    });
+  };
+
+  const resetForm = () => {
+    setEditingProfile(null);
+    reset({
+      profileName: '',
+      salaryMode: 'Monthly',
+      basicSalary: 0,
+      dailyRate: 0,
+      shiftAllowance: 0,
+      otRatePerHour: 0,
+      sundayPhOtDays: 0,
+      publicHolidayOtHours: 0,
+      transportationFee: 0,
+      deductionNoWork4Days: 0,
+      advanceSalary: 0,
+      standardWorkHours: 8,
+      status: 'Active',
+    });
+  };
+
+  const onSubmit = async (data: ProfileFormValues) => {
+    if (!employee) return;
+    setSaving(true);
+    try {
+      const payload = {
+        employeeId: employee.id,
+        profileName: data.profileName.trim(),
+        salaryMode: data.salaryMode,
+        basicSalary: data.basicSalary,
+        dailyRate: data.dailyRate,
+        shiftAllowance: data.shiftAllowance,
+        otRatePerHour: data.otRatePerHour > 0 ? data.otRatePerHour : autoOtRate,
+        sundayPhOtDays: data.sundayPhOtDays,
+        publicHolidayOtHours: data.publicHolidayOtHours,
+        transportationFee: data.transportationFee,
+        deductionNoWork4Days: data.deductionNoWork4Days,
+        advanceSalary: data.advanceSalary,
+        standardWorkHours: data.standardWorkHours,
+        isPrimary: false,
+        status: data.status,
+      };
+
+      if (editingProfile) {
+        await employeeProfileApi.update(editingProfile.id, payload);
+        toast.success('Profile updated');
+      } else {
+        await employeeProfileApi.create(payload);
+        toast.success('Profile added');
+      }
+      await loadProfiles();
+      resetForm();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to save profile');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (profileId: number) => {
+    if (!confirm('Delete this secondary profile?')) return;
+    try {
+      await employeeProfileApi.delete(profileId);
+      toast.success('Profile deleted');
+      await loadProfiles();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to delete profile');
+    }
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={employee ? `Payroll Profiles - ${employee.fullName}` : 'Payroll Profiles'}
+      size="lg"
+      footer={
+        <>
+          <button className="btn-secondary" onClick={onClose}>Close</button>
+          <button className="btn-primary" onClick={handleSubmit(onSubmit)} disabled={!employee || saving}>
+            {saving ? <><Spinner size="sm" /> Saving…</> : (editingProfile ? 'Save Profile' : 'Add Profile')}
+          </button>
+        </>
+      }
+    >
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-700 mb-3">Current Profiles</h3>
+            {loading ? (
+              <div className="flex justify-center py-8"><Spinner /></div>
+            ) : (
+              <div className="space-y-3">
+                {profiles.map(profile => (
+                  <div key={profile.id} className="rounded-2xl border border-slate-200 p-4 bg-white">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-slate-900">{profile.profileName}</p>
+                          {profile.isPrimary && <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-semibold">Primary</span>}
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1">
+                          {profile.salaryMode} · {formatCurrency(profile.basicSalary || profile.dailyRate)} · OT {formatCurrency(profile.otRatePerHour)}
+                        </p>
+                        <p className="text-xs text-slate-400 mt-1">
+                          Shift {formatCurrency(profile.shiftAllowance)} · Transport {formatCurrency(profile.transportationFee)} · Status {profile.status}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {!profile.isPrimary && (
+                          <>
+                            <button
+                              className="text-xs font-semibold text-navy-800 hover:underline"
+                              onClick={() => startEdit(profile)}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              className="text-xs font-semibold text-red-600 hover:underline"
+                              onClick={() => handleDelete(profile.id)}
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
+                        {profile.isPrimary && <span className="text-xs text-slate-400">Synced from employee form</span>}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {profiles.length === 0 && (
+                  <EmptyState message="No payroll profiles yet" />
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-700 mb-3">{editingProfile ? 'Edit Secondary Profile' : 'Add Secondary Profile'}</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField label="Profile Name" error={errors.profileName?.message} required>
+                <input {...register('profileName', { required: 'Required' })} className="input" placeholder="Transport Included" />
+              </FormField>
+              <FormField label="Salary Mode" required>
+                <select {...register('salaryMode')} className="input">
+                  <option value="Monthly">Monthly</option>
+                  <option value="Daily">Daily</option>
+                </select>
+              </FormField>
+              <FormField label="Monthly Salary BASIC S$" required={salaryMode === 'Monthly'}>
+                <input {...register('basicSalary', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
+              </FormField>
+              <FormField label="Daily Rate S$" required={salaryMode === 'Daily'}>
+                <input {...register('dailyRate', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder={salaryMode === 'Daily' ? '24.00' : '0.00'} />
+              </FormField>
+              <FormField label="Shift Allowance S$">
+                <input {...register('shiftAllowance', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
+              </FormField>
+              <FormField label="Transportation Fee">
+                <input {...register('transportationFee', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
+              </FormField>
+              <FormField label="Advance Salary">
+                <input {...register('advanceSalary', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
+              </FormField>
+              <FormField label="Deduction (No Work / 4 days)">
+                <input {...register('deductionNoWork4Days', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
+              </FormField>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">OT Rate / Hour</p>
+                <p className="mt-2 text-lg font-semibold text-slate-900">{formatCurrency(autoOtRate)}</p>
+                <p className="mt-1 text-xs text-slate-500">Auto calculated unless you type a custom amount below.</p>
+              </div>
+              <FormField label="OT Rate Override">
+                <input {...register('otRatePerHour', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
+              </FormField>
+              <FormField label="Std. Work Hours">
+                <input {...register('standardWorkHours', { valueAsNumber: true })} type="number" step="1" className="input" placeholder="8" />
+              </FormField>
+              <FormField label="Status">
+                <select {...register('status')} className="input">
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </FormField>
+            </div>
+          </div>
+
+          {editingProfile && (
+            <button className="text-sm text-slate-500 hover:text-slate-800 underline" onClick={resetForm}>
+              Cancel edit
+            </button>
           )}
         </div>
       </div>

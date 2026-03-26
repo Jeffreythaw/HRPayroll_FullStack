@@ -23,6 +23,9 @@ public class ExcelReportService : IExcelReportService
 
     public async Task<byte[]> GenerateMonthlyReportAsync(ExcelReportRequest req)
     {
+        var profileIdsActive = req.ProfileIds != null && req.ProfileIds.Count > 0;
+        var employeeIdsActive = req.EmployeeIds != null && req.EmployeeIds.Count > 0;
+
         var payrolls = await _db.PayrollRecords
             .Include(p => p.Employee).ThenInclude(e => e.Department)
             .Include(p => p.EmployeePayrollProfile)
@@ -30,7 +33,8 @@ public class ExcelReportService : IExcelReportService
                         p.EmployeePayrollProfile.Status == "Active" &&
                         p.Month == req.Month &&
                         p.Year == req.Year &&
-                        (req.EmployeeIds == null || req.EmployeeIds.Contains(p.EmployeeId)))
+                        (profileIdsActive ? req.ProfileIds!.Contains(p.EmployeePayrollProfileId)
+                                          : (!employeeIdsActive || req.EmployeeIds!.Contains(p.EmployeeId))))
             .OrderBy(p => p.Employee.EmployeeCode)
             .ThenBy(p => p.EmployeePayrollProfile.ProfileName)
             .ToListAsync();
@@ -389,6 +393,9 @@ public class ExcelReportService : IExcelReportService
 
     public async Task<byte[]> GeneratePaymentVoucherPdfAsync(ExcelReportRequest req)
     {
+        var profileIdsActive = req.ProfileIds != null && req.ProfileIds.Count > 0;
+        var employeeIdsActive = req.EmployeeIds != null && req.EmployeeIds.Count > 0;
+
         var payrolls = await _db.PayrollRecords
             .Include(p => p.Employee).ThenInclude(e => e.Department)
             .Include(p => p.EmployeePayrollProfile)
@@ -396,7 +403,8 @@ public class ExcelReportService : IExcelReportService
                         p.EmployeePayrollProfile.Status == "Active" &&
                         p.Month == req.Month &&
                         p.Year == req.Year &&
-                        (req.EmployeeIds == null || req.EmployeeIds.Contains(p.EmployeeId)))
+                        (profileIdsActive ? req.ProfileIds!.Contains(p.EmployeePayrollProfileId)
+                                          : (!employeeIdsActive || req.EmployeeIds!.Contains(p.EmployeeId))))
             .OrderBy(p => p.Employee.EmployeeCode)
             .ThenBy(p => p.EmployeePayrollProfile.ProfileName)
             .ToListAsync();

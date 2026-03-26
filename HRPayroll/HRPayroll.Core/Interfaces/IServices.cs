@@ -24,6 +24,11 @@ public interface IEmployeeService
     Task<EmployeeDto> CreateAsync(CreateEmployeeRequest request);
     Task<EmployeeDto?> UpdateAsync(int id, UpdateEmployeeRequest request);
     Task<bool> DeleteAsync(int id);
+    Task<List<EmployeePayrollProfileDto>> GetProfilesAsync(int? employeeId = null, string? status = null);
+    Task<EmployeePayrollProfileDto?> GetProfileByIdAsync(int id);
+    Task<EmployeePayrollProfileDto> CreateProfileAsync(CreateEmployeePayrollProfileRequest request);
+    Task<EmployeePayrollProfileDto?> UpdateProfileAsync(int id, UpdateEmployeePayrollProfileRequest request);
+    Task<bool> DeleteProfileAsync(int id);
 }
 
 public interface IAttendanceService

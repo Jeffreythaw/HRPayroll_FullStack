@@ -87,6 +87,50 @@ public class UpdateEmployeeRequest : CreateEmployeeRequest
     public string Status { get; set; } = "Active";
 }
 
+// ─── Employee Payroll Profiles ────────────────────────────────
+public class EmployeePayrollProfileDto
+{
+    public int Id { get; set; }
+    public int EmployeeId { get; set; }
+    public string EmployeeCode { get; set; } = string.Empty;
+    public string EmployeeName { get; set; } = string.Empty;
+    public string ProfileName { get; set; } = string.Empty;
+    public string SalaryMode { get; set; } = "Monthly";
+    public decimal BasicSalary { get; set; }
+    public decimal DailyRate { get; set; }
+    public decimal ShiftAllowance { get; set; }
+    public decimal OTRatePerHour { get; set; }
+    public decimal SundayPhOtDays { get; set; }
+    public decimal PublicHolidayOtHours { get; set; }
+    public decimal TransportationFee { get; set; }
+    public decimal DeductionNoWork4Days { get; set; }
+    public decimal AdvanceSalary { get; set; }
+    public int StandardWorkHours { get; set; }
+    public bool IsPrimary { get; set; }
+    public string Status { get; set; } = "Active";
+}
+
+public class CreateEmployeePayrollProfileRequest
+{
+    public int EmployeeId { get; set; }
+    public string ProfileName { get; set; } = string.Empty;
+    public string SalaryMode { get; set; } = "Monthly";
+    public decimal BasicSalary { get; set; }
+    public decimal DailyRate { get; set; }
+    public decimal ShiftAllowance { get; set; }
+    public decimal OTRatePerHour { get; set; }
+    public decimal SundayPhOtDays { get; set; }
+    public decimal PublicHolidayOtHours { get; set; }
+    public decimal TransportationFee { get; set; }
+    public decimal DeductionNoWork4Days { get; set; }
+    public decimal AdvanceSalary { get; set; }
+    public int StandardWorkHours { get; set; } = 8;
+    public bool IsPrimary { get; set; } = false;
+    public string Status { get; set; } = "Active";
+}
+
+public class UpdateEmployeePayrollProfileRequest : CreateEmployeePayrollProfileRequest { }
+
 // ─── Attendance ───────────────────────────────────────────────
 public class AttendanceDto
 {
@@ -236,4 +280,5 @@ public class ExcelReportRequest
     public int Month { get; set; }
     public int Year { get; set; }
     public List<int>? EmployeeIds { get; set; }
+    public List<int>? ProfileIds { get; set; }
 }

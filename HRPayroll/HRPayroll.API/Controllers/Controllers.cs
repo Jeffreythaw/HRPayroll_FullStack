@@ -101,6 +101,62 @@ public class EmployeesController : ControllerBase
     }
 }
 
+// ─── Employee Payroll Profiles ───────────────────────────────────────────────
+[ApiController]
+[Route("api/employee-profiles")]
+[Authorize]
+public class EmployeeProfilesController : ControllerBase
+{
+    private readonly IEmployeeService _svc;
+    public EmployeeProfilesController(IEmployeeService svc) => _svc = svc;
+
+    [HttpGet]
+    public async Task<IActionResult> GetAll([FromQuery] int? employeeId, [FromQuery] string? status) =>
+        Ok(await _svc.GetProfilesAsync(employeeId, status));
+
+    [HttpGet("{id}")]
+    public async Task<IActionResult> Get(int id)
+    {
+        var profile = await _svc.GetProfileByIdAsync(id);
+        return profile == null ? NotFound() : Ok(profile);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] CreateEmployeePayrollProfileRequest req)
+    {
+        try
+        {
+            var profile = await _svc.CreateProfileAsync(req);
+            return CreatedAtAction(nameof(Get), new { id = profile.Id }, profile);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(int id, [FromBody] UpdateEmployeePayrollProfileRequest req)
+    {
+        try
+        {
+            var profile = await _svc.UpdateProfileAsync(id, req);
+            return profile == null ? NotFound() : Ok(profile);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var ok = await _svc.DeleteProfileAsync(id);
+        return ok ? NoContent() : BadRequest(new { message = "Primary profiles cannot be deleted" });
+    }
+}
+
 // ─── Attendance ───────────────────────────────────────────────────────────────
 [ApiController]
 [Route("api/[controller]")]

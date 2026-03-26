@@ -1,43 +1,56 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { reportApi, employeeApi } from '../../api';
+import { reportApi, employeeProfileApi } from '../../api';
 import { PageHeader, MonthYearPicker, Spinner } from '../../components/ui';
 import { currentMonthYear, MONTHS } from '../../utils';
-import type { Employee } from '../../types';
+import type { EmployeePayrollProfile } from '../../types';
 
 export default function ReportsPage() {
   const { month, year } = currentMonthYear();
   const [selMonth, setSelMonth] = useState(month);
   const [selYear, setSelYear] = useState(year);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [profiles, setProfiles] = useState<EmployeePayrollProfile[]>([]);
+  const [selectedProfileIds, setSelectedProfileIds] = useState<number[]>([]);
+  const [search, setSearch] = useState('');
   const [generating, setGenerating] = useState(false);
-  const [loadingEmps, setLoadingEmps] = useState(true);
+  const [loadingProfiles, setLoadingProfiles] = useState(true);
 
   useEffect(() => {
-    employeeApi.getAll({ status: 'Active' })
-      .then(setEmployees)
-      .finally(() => setLoadingEmps(false));
+    employeeProfileApi.getAll({ status: 'Active' })
+      .then(setProfiles)
+      .finally(() => setLoadingProfiles(false));
   }, []);
 
   const toggle = (id: number) =>
-    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    setSelectedProfileIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   const toggleAll = () =>
-    setSelectedIds(prev => prev.length === employees.length ? [] : employees.map(e => e.id));
+    setSelectedProfileIds(prev => prev.length === filteredProfiles.length ? [] : filteredProfiles.map(p => p.id));
+
+  const filteredProfiles = profiles.filter(profile => {
+    if (!search) return true;
+    const query = search.toLowerCase();
+    return (
+      profile.employeeName.toLowerCase().includes(query) ||
+      profile.employeeCode.toLowerCase().includes(query) ||
+      profile.profileName.toLowerCase().includes(query)
+    );
+  });
 
   const buildRequest = () => ({
     month: selMonth,
     year: selYear,
-    employeeIds: selectedIds.length > 0 ? selectedIds : undefined,
+    profileIds: selectedProfileIds.length > 0
+      ? selectedProfileIds
+      : filteredProfiles.map(profile => profile.id),
   });
 
   const handleGenerateExcel = async () => {
     setGenerating(true);
     try {
       await reportApi.generateExcel(buildRequest());
-      const count = selectedIds.length || employees.length;
-      toast.success(`Excel report saved for ${count} employee(s)`);
+      const count = selectedProfileIds.length || filteredProfiles.length;
+      toast.success(`Excel report saved for ${count} profile(s)`);
     } catch (err) {
       if ((err as { name?: string })?.name === 'AbortError') return;
       toast.error('Failed to generate report');
@@ -50,8 +63,8 @@ export default function ReportsPage() {
     setGenerating(true);
     try {
       await reportApi.generatePaymentVoucher(buildRequest());
-      const count = selectedIds.length || employees.length;
-      toast.success(`Payment voucher saved for ${count} employee(s)`);
+      const count = selectedProfileIds.length || filteredProfiles.length;
+      toast.success(`Payment voucher saved for ${count} profile(s)`);
     } catch (err) {
       if ((err as { name?: string })?.name === 'AbortError') return;
       toast.error('Failed to generate payment voucher');
@@ -83,54 +96,65 @@ export default function ReportsPage() {
             </p>
           </div>
 
-          {/* Employee selection */}
+          {/* Profile selection */}
           <div className="card p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                <PeopleIcon /> Select Employees
+                <PeopleIcon /> Select Payroll Profiles
               </h2>
               <button
                 onClick={toggleAll}
                 className="text-xs text-navy-800 hover:underline font-medium"
               >
-                {selectedIds.length === employees.length ? 'Deselect All' : 'Select All'}
+                {selectedProfileIds.length === filteredProfiles.length ? 'Deselect All' : 'Select All'}
               </button>
             </div>
 
-            {loadingEmps ? (
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="input mb-3"
+              placeholder="Search employee or profile…"
+            />
+
+            {loadingProfiles ? (
               <div className="flex justify-center py-8"><Spinner /></div>
             ) : (
               <div className="max-h-72 overflow-y-auto space-y-1">
-                {employees.map(emp => (
+                {filteredProfiles.map(profile => (
                   <label
-                    key={emp.id}
+                    key={profile.id}
                     className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-colors ${
-                      selectedIds.includes(emp.id) ? 'bg-navy-50 border border-navy-200' : 'hover:bg-slate-50 border border-transparent'
+                      selectedProfileIds.includes(profile.id) ? 'bg-navy-50 border border-navy-200' : 'hover:bg-slate-50 border border-transparent'
                     }`}
                   >
                     <input
                       type="checkbox"
-                      checked={selectedIds.includes(emp.id)}
-                      onChange={() => toggle(emp.id)}
+                      checked={selectedProfileIds.includes(profile.id)}
+                      onChange={() => toggle(profile.id)}
                       className="rounded accent-navy-800"
                     />
                     <div className="w-7 h-7 bg-navy-100 text-navy-800 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
-                      {emp.firstName[0]}{emp.lastName[0]}
+                      {profile.employeeName.split(' ').map(part => part[0]).slice(0, 2).join('')}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-900">{emp.fullName}</p>
-                      <p className="text-xs text-slate-400">{emp.departmentName} · {emp.position}</p>
+                      <p className="text-sm font-medium text-slate-900">{profile.employeeName}</p>
+                      <p className="text-xs text-slate-400">
+                        {profile.employeeCode} · {profile.profileName} · {profile.salaryMode}
+                      </p>
                     </div>
-                    <span className="text-xs font-mono text-slate-400">{emp.employeeCode}</span>
+                    <span className="text-xs font-mono text-slate-400">
+                      {profile.isPrimary ? 'Primary' : 'Slip'}
+                    </span>
                   </label>
                 ))}
               </div>
             )}
 
             <p className="text-xs text-slate-400 mt-3">
-              {selectedIds.length === 0
-                ? `All ${employees.length} active employees will be included`
-                : `${selectedIds.length} employee${selectedIds.length !== 1 ? 's' : ''} selected`}
+              {selectedProfileIds.length === 0
+                ? `All ${filteredProfiles.length} visible profiles will be included`
+                : `${selectedProfileIds.length} profile${selectedProfileIds.length !== 1 ? 's' : ''} selected`}
             </p>
           </div>
         </div>
@@ -152,7 +176,7 @@ export default function ReportsPage() {
                     </div>
                     <div>
                       <p className="font-semibold text-slate-800 text-xs">Microsoft Excel (.xlsx)</p>
-                      <p className="text-xs text-slate-400">Payroll workbook by employee</p>
+                      <p className="text-xs text-slate-400">Payroll workbook by profile slip</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -161,7 +185,7 @@ export default function ReportsPage() {
                     </div>
                     <div>
                       <p className="font-semibold text-slate-800 text-xs">Payment Voucher (.pdf)</p>
-                      <p className="text-xs text-slate-400">Per-employee printable voucher</p>
+                      <p className="text-xs text-slate-400">Per-profile printable voucher</p>
                     </div>
                   </div>
                 </div>
@@ -173,15 +197,15 @@ export default function ReportsPage() {
                   <span className="font-semibold">{monthName} {selYear}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Employees</span>
+                  <span className="text-slate-500">Profiles</span>
                   <span className="font-semibold">
-                    {selectedIds.length === 0 ? employees.length : selectedIds.length}
+                    {selectedProfileIds.length === 0 ? filteredProfiles.length : selectedProfileIds.length}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Worksheets</span>
                   <span className="font-semibold">
-                    1 per employee
+                    1 per profile
                   </span>
                 </div>
               </div>

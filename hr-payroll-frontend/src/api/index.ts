@@ -3,6 +3,7 @@ import type {
   LoginRequest, LoginResponse,
   Department, CreateDepartmentRequest,
   Employee, CreateEmployeeRequest, UpdateEmployeeRequest,
+  EmployeePayrollProfile, CreateEmployeePayrollProfileRequest, UpdateEmployeePayrollProfileRequest,
   Attendance, CreateAttendanceRequest, UpdateAttendanceRequest, AttendanceSummary,
   AttendanceLookup, CreateAttendanceLookupRequest, UpdateAttendanceLookupRequest,
   PayrollRecord, ProcessPayrollRequest, UpdatePayrollStatusRequest,
@@ -105,6 +106,18 @@ export const employeeApi = {
   create: (data: CreateEmployeeRequest) => api.post<Employee>('/employees', data).then(r => r.data),
   update: (id: number, data: UpdateEmployeeRequest) => api.put<Employee>(`/employees/${id}`, data).then(r => r.data),
   delete: (id: number) => api.delete(`/employees/${id}`),
+};
+
+// ─── Employee Payroll Profiles ───────────────────────────────
+export const employeeProfileApi = {
+  getAll: (params?: { employeeId?: number; status?: string }) =>
+    api.get<EmployeePayrollProfile[]>('/employee-profiles', { params }).then(r => r.data),
+  getById: (id: number) => api.get<EmployeePayrollProfile>(`/employee-profiles/${id}`).then(r => r.data),
+  create: (data: CreateEmployeePayrollProfileRequest) =>
+    api.post<EmployeePayrollProfile>('/employee-profiles', data).then(r => r.data),
+  update: (id: number, data: UpdateEmployeePayrollProfileRequest) =>
+    api.put<EmployeePayrollProfile>(`/employee-profiles/${id}`, data).then(r => r.data),
+  delete: (id: number) => api.delete(`/employee-profiles/${id}`),
 };
 
 // ─── Attendance ───────────────────────────────────────────────

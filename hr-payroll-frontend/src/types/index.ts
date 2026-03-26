@@ -78,6 +78,48 @@ export interface UpdateEmployeeRequest extends CreateEmployeeRequest {
   status: string;
 }
 
+// ─── Employee Payroll Profiles ───────────────────────────────
+export interface EmployeePayrollProfile {
+  id: number;
+  employeeId: number;
+  employeeCode: string;
+  employeeName: string;
+  profileName: string;
+  salaryMode: string;
+  basicSalary: number;
+  dailyRate: number;
+  shiftAllowance: number;
+  otRatePerHour: number;
+  sundayPhOtDays: number;
+  publicHolidayOtHours: number;
+  transportationFee: number;
+  deductionNoWork4Days: number;
+  advanceSalary: number;
+  standardWorkHours: number;
+  isPrimary: boolean;
+  status: string;
+}
+
+export interface CreateEmployeePayrollProfileRequest {
+  employeeId: number;
+  profileName: string;
+  salaryMode: string;
+  basicSalary: number;
+  dailyRate: number;
+  shiftAllowance: number;
+  otRatePerHour: number;
+  sundayPhOtDays: number;
+  publicHolidayOtHours: number;
+  transportationFee: number;
+  deductionNoWork4Days: number;
+  advanceSalary: number;
+  standardWorkHours: number;
+  isPrimary: boolean;
+  status: string;
+}
+
+export interface UpdateEmployeePayrollProfileRequest extends CreateEmployeePayrollProfileRequest {}
+
 // ─── Attendance ───────────────────────────────────────────────
 export interface Attendance {
   id: number;
@@ -214,4 +256,5 @@ export interface ExcelReportRequest {
   month: number;
   year: number;
   employeeIds?: number[];
+  profileIds?: number[];
 }
