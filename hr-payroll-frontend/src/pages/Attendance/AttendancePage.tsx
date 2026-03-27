@@ -223,6 +223,13 @@ export default function AttendancePage() {
                   <InfoPair label="OT" value={r.otHours > 0 ? `${r.otHours.toFixed(2)}h` : '—'} mono />
                   <InfoPair label="Transport" value={r.transport || '—'} />
                 </div>
+                {r.isOvernight && (
+                  <div className="mt-3">
+                    <span className="inline-flex rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-indigo-700">
+                      Night Shift
+                    </span>
+                  </div>
+                )}
                 <div className="mt-3 text-sm">
                   <p className="text-[10px] uppercase tracking-[0.24em] text-slate-400 mb-1">Site / Project</p>
                   <p className="text-slate-700">{r.siteProject || '—'}</p>
@@ -258,6 +265,7 @@ export default function AttendancePage() {
                 <th className="table-th">End</th>
                 <th className="table-th">Working Hours</th>
                 <th className="table-th">OT Hours</th>
+                <th className="table-th">Night Shift</th>
                 <th className="table-th">Site / Project</th>
                 <th className="table-th">Transport</th>
                 <th className="table-th">Status</th>
@@ -284,6 +292,9 @@ export default function AttendancePage() {
                     {r.otHours > 0 ? (
                       <span className="font-mono text-indigo-600 font-semibold">{r.otHours.toFixed(2)}h</span>
                     ) : <span className="text-slate-400">—</span>}
+                  </td>
+                  <td className="table-td">
+                    {r.isOvernight ? <span className="badge-purple">Night Shift</span> : <span className="text-slate-400">—</span>}
                   </td>
                   <td className="table-td text-slate-600 text-sm">{r.siteProject || '—'}</td>
                   <td className="table-td text-slate-600 text-sm">{r.transport || '—'}</td>
@@ -369,9 +380,15 @@ function AttendanceFormModal({
   const [saving, setSaving] = useState(false);
 
   const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<CreateAttendanceRequest>({
-    defaultValues: { status: 'Present' }
+    defaultValues: { status: 'Present', isOvernight: false }
   });
   const status = watch('status');
+  const start = watch('start');
+  const end = watch('end');
+  const isOvernight = watch('isOvernight');
+  const employeeId = watch('employeeId');
+  const selectedEmployee = employees.find(e => e.id === Number(employeeId));
+  const standardHours = selectedEmployee?.standardWorkHours ?? 8;
 
   useEffect(() => {
     if (record) {
@@ -380,6 +397,7 @@ function AttendanceFormModal({
         date: record.date,
         start: record.start,
         end: record.end,
+        isOvernight: record.isOvernight ?? isOvernightPunch(record.start, record.end),
         siteProject: record.siteProject,
         transport: record.transport,
         status: record.status,
@@ -390,6 +408,7 @@ function AttendanceFormModal({
       reset({
         date: d.toISOString().split('T')[0],
         status: 'Present',
+        isOvernight: false,
         siteProject: '',
         transport: '',
       });
@@ -403,7 +422,12 @@ function AttendanceFormModal({
         ...data,
         start: normalizeTimeInput(data.start),
         end: normalizeTimeInput(data.end),
+        isOvernight: data.status === 'Present' || data.status === 'HalfDay' ? !!data.isOvernight : false,
       };
+      if (payload.status !== 'Present' && payload.status !== 'HalfDay') {
+        payload.start = undefined;
+        payload.end = undefined;
+      }
       if (isEdit && record) {
         await attendanceApi.update(record.id, payload as UpdateAttendanceRequest);
         toast.success('Record updated');
@@ -420,6 +444,7 @@ function AttendanceFormModal({
   };
 
   const needsTime = status === 'Present' || status === 'HalfDay';
+  const preview = getAttendancePreview(start, end, standardHours, !!isOvernight, needsTime);
 
   return (
     <Modal
@@ -456,26 +481,73 @@ function AttendanceFormModal({
             </select>
           </FormField>
           {needsTime && (
-            <>
-              <FormField label="Start">
-                <input {...register('start')} type="time" className="input" />
+            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+              <FormField label="Start" error={errors.start?.message} required>
+                <input {...register('start', { required: 'Required' })} type="time" className="input" />
               </FormField>
-              <FormField label="End">
-                <input {...register('end')} type="time" className="input" />
+              <FormField label="End" error={errors.end?.message} required>
+                <input
+                  {...register('end', {
+                    required: 'Required',
+                    validate: value => validateAttendanceRange(start, value, !!isOvernight, needsTime) || 'Check out must be later than check in unless this is a night shift.',
+                  })}
+                  type="time"
+                  className="input"
+                />
               </FormField>
-            </>
+              <label className="md:col-span-2 flex items-start gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  {...register('isOvernight')}
+                />
+                <span>
+                  <span className="font-semibold text-slate-900">Night shift / next-day checkout</span>
+                  <span className="block text-xs text-slate-500 mt-1">
+                    Use this for punches like 9:00 PM → 9:00 AM. The backend will still apply the company lunch-break rule for shifts over 6 hours.
+                  </span>
+                </span>
+              </label>
+              <div className="md:col-span-2 rounded-xl border border-indigo-100 bg-indigo-50/70 p-3 text-sm text-slate-700">
+                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-indigo-500">Live Preview</p>
+                {preview.valid ? (
+                  <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <PreviewStat label="Gross" value={`${preview.totalHours.toFixed(2)}h`} />
+                    <PreviewStat label="Lunch" value={preview.lunchDeduction > 0 ? `-${preview.lunchDeduction.toFixed(2)}h` : '0.00h'} />
+                    <PreviewStat label="Work" value={`${preview.workHours.toFixed(2)}h`} />
+                    <PreviewStat label="OT" value={`${preview.otHours.toFixed(2)}h`} highlight />
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-amber-700">{preview.message}</p>
+                )}
+                <p className="mt-2 text-xs text-slate-500">
+                  Standard work hours: {standardHours}h
+                  {selectedEmployee ? ` · ${selectedEmployee.fullName}` : ''}
+                </p>
+              </div>
+            </div>
           )}
           <FormField label="Site / Project">
-            <select {...register('siteProject')} className="input">
-              <option value="">Select site / project</option>
-              {siteProjects.map(x => <option key={x.id} value={x.name}>{x.name}</option>)}
-            </select>
+            <input
+              {...register('siteProject')}
+              className="input"
+              list="site-project-options"
+              placeholder="Type or select site / project"
+            />
+            <datalist id="site-project-options">
+              {siteProjects.map(x => <option key={x.id} value={x.name} />)}
+            </datalist>
           </FormField>
           <FormField label="Transport">
-            <select {...register('transport')} className="input">
-              <option value="">Select transport</option>
-              {transports.map(x => <option key={x.id} value={x.name}>{x.name}</option>)}
-            </select>
+            <input
+              {...register('transport')}
+              className="input"
+              list="transport-options"
+              placeholder="Type or select transport"
+            />
+            <datalist id="transport-options">
+              {transports.map(x => <option key={x.id} value={x.name} />)}
+            </datalist>
           </FormField>
         </div>
 
@@ -483,11 +555,9 @@ function AttendanceFormModal({
           <input {...register('remarks')} className="input" placeholder="Optional notes…" />
         </FormField>
 
-        {needsTime && (
-          <p className="text-xs text-slate-500 bg-slate-50 rounded-lg p-3">
-            Work hours and OT hours are calculated by the backend from Start / End and the employee's standard work hours.
-          </p>
-        )}
+        <p className="text-xs text-slate-500 bg-slate-50 rounded-lg p-3">
+          Work hours and OT hours are calculated by the backend from Start / End, the night-shift toggle, and the employee's standard work hours.
+        </p>
       </div>
     </Modal>
   );
@@ -496,6 +566,90 @@ function AttendanceFormModal({
 function normalizeTimeInput(value?: string) {
   if (!value) return value;
   return value.length === 5 ? `${value}:00` : value;
+}
+
+function validateAttendanceRange(start?: string, end?: string, isOvernight = false, needsTime = true) {
+  if (!needsTime) return true;
+  if (!start || !end) return true;
+  if (start === end) return false;
+
+  const startMinutes = timeToMinutes(start);
+  const endMinutes = timeToMinutes(end);
+
+  if (isOvernight) {
+    return endMinutes < startMinutes;
+  }
+  return endMinutes > startMinutes;
+}
+
+function isOvernightPunch(start?: string, end?: string) {
+  if (!start || !end) return false;
+  return timeToMinutes(end) <= timeToMinutes(start);
+}
+
+type AttendancePreview =
+  | {
+      valid: true;
+      totalHours: number;
+      lunchDeduction: number;
+      workHours: number;
+      otHours: number;
+    }
+  | {
+      valid: false;
+      message: string;
+    };
+
+function getAttendancePreview(start?: string, end?: string, standardHours = 8, isOvernight = false, needsTime = true): AttendancePreview {
+  if (!needsTime) {
+    return { valid: false, message: 'Work time preview is only shown for Present / HalfDay records.' };
+  }
+  if (!start || !end) {
+    return { valid: false, message: 'Enter both Start and End to preview working hours and OT.' };
+  }
+  if (start === end) {
+    return { valid: false, message: 'Start and End cannot be the same.' };
+  }
+
+  const startMinutes = timeToMinutes(start);
+  const endMinutes = timeToMinutes(end);
+
+  if (isOvernight && endMinutes > startMinutes) {
+    return { valid: false, message: 'Night shift checkout must be earlier than check-in time on the clock.' };
+  }
+  if (!isOvernight && endMinutes <= startMinutes) {
+    return { valid: false, message: 'End time must be later than Start unless this is a night shift.' };
+  }
+
+  const totalHours = isOvernight
+    ? (endMinutes - startMinutes + 24 * 60) / 60
+    : (endMinutes - startMinutes) / 60;
+  const lunchDeduction = totalHours > 6 ? 1 : 0;
+  const effective = Math.max(0, totalHours - lunchDeduction);
+  const workHours = Math.min(effective, standardHours);
+  const otHours = Math.max(0, effective - standardHours);
+
+  return {
+    valid: true,
+    totalHours,
+    lunchDeduction,
+    workHours,
+    otHours,
+  };
+}
+
+function timeToMinutes(value: string) {
+  const [hours, minutes] = value.split(':').map(Number);
+  return (hours * 60) + minutes;
+}
+
+function PreviewStat({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div className="rounded-xl bg-white border border-slate-200 px-3 py-2">
+      <p className="text-[10px] uppercase tracking-[0.22em] text-slate-400">{label}</p>
+      <p className={`mt-1 font-mono text-sm font-semibold ${highlight ? 'text-indigo-600' : 'text-slate-800'}`}>{value}</p>
+    </div>
+  );
 }
 
 // ─── Lookup Manager Modal ─────────────────────────────────────

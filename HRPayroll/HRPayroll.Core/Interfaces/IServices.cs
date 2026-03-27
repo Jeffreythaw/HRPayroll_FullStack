@@ -39,7 +39,7 @@ public interface IAttendanceService
     Task<AttendanceDto?> UpdateAsync(int id, UpdateAttendanceRequest request);
     Task<bool> DeleteAsync(int id);
     Task<AttendanceSummaryDto?> GetSummaryAsync(int employeeId, int month, int year);
-    (decimal workHours, decimal otHours) CalculateHours(TimeOnly? start, TimeOnly? end, int standardHours);
+    (decimal workHours, decimal otHours) CalculateHours(TimeOnly? start, TimeOnly? end, int standardHours, bool isOvernight, string status);
 }
 
 public interface IAttendanceLookupService

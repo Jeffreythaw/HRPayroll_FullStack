@@ -141,6 +141,7 @@ public class AttendanceDto
     public DateOnly Date { get; set; }
     public TimeOnly? Start { get; set; }
     public TimeOnly? End { get; set; }
+    public bool IsOvernight { get; set; }
     public decimal WorkHours { get; set; }
     public decimal OTHours { get; set; }
     public string? SiteProject { get; set; }
@@ -155,6 +156,7 @@ public class CreateAttendanceRequest
     public DateOnly Date { get; set; }
     public TimeOnly? Start { get; set; }
     public TimeOnly? End { get; set; }
+    public bool IsOvernight { get; set; }
     public string? SiteProject { get; set; }
     public string? Transport { get; set; }
     public string Status { get; set; } = "Present";
@@ -165,6 +167,7 @@ public class UpdateAttendanceRequest
 {
     public TimeOnly? Start { get; set; }
     public TimeOnly? End { get; set; }
+    public bool IsOvernight { get; set; }
     public string? SiteProject { get; set; }
     public string? Transport { get; set; }
     public string Status { get; set; } = "Present";

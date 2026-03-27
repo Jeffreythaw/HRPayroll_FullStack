@@ -129,6 +129,7 @@ export interface Attendance {
   date: string;
   start?: string;
   end?: string;
+  isOvernight: boolean;
   workHours: number;
   otHours: number;
   siteProject?: string;
@@ -142,6 +143,7 @@ export interface CreateAttendanceRequest {
   date: string;
   start?: string;
   end?: string;
+  isOvernight: boolean;
   siteProject?: string;
   transport?: string;
   status: string;
@@ -151,6 +153,7 @@ export interface CreateAttendanceRequest {
 export interface UpdateAttendanceRequest {
   start?: string;
   end?: string;
+  isOvernight: boolean;
   siteProject?: string;
   transport?: string;
   status: string;

@@ -25,6 +25,7 @@ public class AttendanceService : IAttendanceService
         Date = a.Date,
         Start = a.CheckIn,
         End = a.CheckOut,
+        IsOvernight = IsOvernight(a.CheckIn, a.CheckOut),
         WorkHours = a.WorkHours,
         OTHours = a.OTHours,
         SiteProject = a.SiteProject,
@@ -48,6 +49,7 @@ public class AttendanceService : IAttendanceService
             Date = a.Date,
             Start = a.CheckIn,
             End = a.CheckOut,
+            IsOvernight = IsOvernight(a.CheckIn, a.CheckOut),
             WorkHours = a.WorkHours,
             OTHours = a.OTHours,
             SiteProject = a.SiteProject,
@@ -68,7 +70,7 @@ public class AttendanceService : IAttendanceService
         var emp = await _db.Employees.FindAsync(req.EmployeeId)
             ?? throw new InvalidOperationException("Employee not found");
 
-        var (workHours, otHours) = CalculateHours(req.Start, req.End, emp.StandardWorkHours);
+        var (workHours, otHours) = CalculateHours(req.Start, req.End, emp.StandardWorkHours, req.IsOvernight, req.Status);
 
         var att = new Attendance
         {
@@ -94,7 +96,7 @@ public class AttendanceService : IAttendanceService
         var att = await _db.Attendances.Include(a => a.Employee).FirstOrDefaultAsync(a => a.Id == id);
         if (att == null) return null;
 
-        var (workHours, otHours) = CalculateHours(req.Start, req.End, att.Employee?.StandardWorkHours ?? 8);
+        var (workHours, otHours) = CalculateHours(req.Start, req.End, att.Employee?.StandardWorkHours ?? 8, req.IsOvernight, req.Status);
         att.CheckIn = req.Start;
         att.CheckOut = req.End;
         att.WorkHours = workHours;
@@ -152,17 +154,38 @@ public class AttendanceService : IAttendanceService
         };
     }
 
-    public (decimal workHours, decimal otHours) CalculateHours(TimeOnly? start, TimeOnly? end, int standardHours)
+    public (decimal workHours, decimal otHours) CalculateHours(TimeOnly? start, TimeOnly? end, int standardHours, bool isOvernight, string status)
     {
+        var requiresTime = RequiresTime(status);
+        if (!start.HasValue && !end.HasValue) return (0, 0);
+        if (requiresTime && (!start.HasValue || !end.HasValue))
+        {
+            throw new InvalidOperationException("Start and End are required for Present or HalfDay attendance.");
+        }
         if (!start.HasValue || !end.HasValue) return (0, 0);
+
+        if (start.Value == end.Value)
+        {
+            throw new InvalidOperationException("Start and End cannot be the same.");
+        }
+
         // Support overnight shifts (for example 9:00 PM -> 9:00 AM next day).
         var startTime = start.Value.ToTimeSpan();
         var endTime = end.Value.ToTimeSpan();
         var totalHours = (endTime - startTime).TotalHours;
-        if (totalHours <= 0)
+        if (isOvernight)
         {
+            if (totalHours > 0)
+            {
+                throw new InvalidOperationException("Night shift should end on the next day and finish earlier than Start time.");
+            }
             totalHours += 24;
         }
+        else if (totalHours <= 0)
+        {
+            throw new InvalidOperationException("End time must be after Start time unless this is a night shift.");
+        }
+
         var total = (decimal)totalHours;
         if (total <= 0) return (0, 0);
         // Deduct 1 hour lunch break if > 6 hours
@@ -171,4 +194,9 @@ public class AttendanceService : IAttendanceService
         var otHours = effective > standardHours ? effective - standardHours : 0;
         return (Math.Round(workHours, 2), Math.Round(otHours, 2));
     }
+
+    private static bool RequiresTime(string status) => status is "Present" or "HalfDay";
+
+    private static bool IsOvernight(TimeOnly? start, TimeOnly? end)
+        => start.HasValue && end.HasValue && end.Value <= start.Value;
 }
