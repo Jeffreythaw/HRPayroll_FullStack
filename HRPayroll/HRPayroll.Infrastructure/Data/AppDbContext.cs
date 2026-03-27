@@ -43,6 +43,7 @@ public class AppDbContext : DbContext
             e.HasIndex(emp => emp.EmployeeCode).IsUnique();
             e.HasIndex(emp => emp.Email).IsUnique();
             e.Property(emp => emp.FinNo).HasMaxLength(100);
+            e.Property(emp => emp.Bank).HasMaxLength(150);
             e.Property(emp => emp.SalaryMode).HasMaxLength(20).HasDefaultValue("Monthly");
             e.Property(emp => emp.BasicSalary).HasColumnType("decimal(18,2)");
             e.Property(emp => emp.DailyRate).HasColumnType("decimal(18,2)");

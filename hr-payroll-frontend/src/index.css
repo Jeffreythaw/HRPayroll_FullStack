@@ -76,18 +76,18 @@
     @apply text-sm text-slate-500 mt-1 max-w-2xl;
   }
   .modal-overlay {
-    @apply fixed inset-0 bg-slate-950/45 backdrop-blur-md z-50 flex items-center justify-center p-4;
+    @apply fixed inset-0 bg-slate-950/45 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4;
   }
   .modal-box {
-    @apply bg-white rounded-[1.5rem] shadow-[0_30px_100px_-35px_rgba(15,23,42,0.6)] w-full max-w-lg max-h-[90vh] overflow-y-auto border border-white/70;
+    @apply bg-white rounded-2xl sm:rounded-[1.5rem] shadow-[0_30px_100px_-35px_rgba(15,23,42,0.6)] w-full max-w-[calc(100vw-1.5rem)] sm:max-w-lg max-h-[92vh] overflow-y-auto border border-white/70;
   }
   .modal-header {
-    @apply flex items-center justify-between p-6 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white;
+    @apply flex items-center justify-between p-4 sm:p-6 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white;
   }
   .modal-body {
-    @apply p-6 bg-white;
+    @apply p-4 sm:p-6 bg-white;
   }
   .modal-footer {
-    @apply flex items-center justify-end gap-3 p-6 border-t border-slate-100 bg-slate-50/70;
+    @apply flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 p-4 sm:p-6 border-t border-slate-100 bg-slate-50/70;
   }
 }

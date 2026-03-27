@@ -120,11 +120,11 @@ interface MonthYearPickerProps {
 export function MonthYearPicker({ month, year, onChange }: MonthYearPickerProps) {
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
       <select
         value={month}
         onChange={e => onChange(Number(e.target.value), year)}
-        className="input w-36 text-sm"
+        className="input w-full text-sm sm:w-36"
       >
         {MONTHS.map((m, i) => (
           <option key={m} value={i + 1}>{m}</option>
@@ -133,7 +133,7 @@ export function MonthYearPicker({ month, year, onChange }: MonthYearPickerProps)
       <select
         value={year}
         onChange={e => onChange(month, Number(e.target.value))}
-        className="input w-24 text-sm"
+        className="input w-full text-sm sm:w-24"
       >
         {years.map(y => <option key={y} value={y}>{y}</option>)}
       </select>
@@ -182,7 +182,7 @@ export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
         <h1 className="page-title">{title}</h1>
         {subtitle && <p className="page-subtitle">{subtitle}</p>}
       </div>
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
+      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
   );
 }

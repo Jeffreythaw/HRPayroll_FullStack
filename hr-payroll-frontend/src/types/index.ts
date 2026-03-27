@@ -34,6 +34,7 @@ export interface Employee {
   fullName: string;
   email: string;
   phone?: string;
+  bank?: string;
   departmentId: number;
   departmentName: string;
   position: string;
@@ -54,6 +55,7 @@ export interface CreateEmployeeRequest {
   lastName: string;
   email: string;
   phone?: string;
+  bank?: string;
   departmentId: number;
   position: string;
   salaryMode: string;

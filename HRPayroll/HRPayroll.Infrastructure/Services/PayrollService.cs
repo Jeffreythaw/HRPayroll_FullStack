@@ -133,6 +133,9 @@ public class PayrollService : IPayrollService
             decimal attendanceOTHours = attendances
                 .Where(a => !holidaySet.Contains(a.Date))
                 .Sum(a => a.OTHours);
+            decimal transportDays = attendances.Count(a =>
+                a.Status is "Present" or "HalfDay" &&
+                !string.IsNullOrWhiteSpace(a.Transport));
             decimal sundayPhDays = attendances.Count(a =>
                 a.Status is "Present" or "HalfDay" &&
                 a.Date.DayOfWeek == DayOfWeek.Sunday &&
@@ -154,20 +157,20 @@ public class PayrollService : IPayrollService
             decimal hourlyBasicRate = isDaily
                 ? (profile.DailyRate > 0 ? profile.DailyRate : 0) / Math.Max(profile.StandardWorkHours, 1)
                 : (profile.BasicSalary * 12m) / (52m * 44m);
+            decimal transportAmount = Math.Max(profile.TransportationFee, 0) * transportDays * 2m;
 
             adjustmentMap.TryGetValue(profile.Id, out var adjustment);
             decimal baseSalary = isDaily
                 ? dailyRate * presentDays
                 : profile.BasicSalary;
-            decimal baseDeductions = isDaily ? 0 : absentDays * dailyRate;
             decimal fixedDeduction = isDaily ? 0 : Math.Max(adjustment?.DeductionNoWork4Days ?? 0, 0);
             decimal advanceSalary = Math.Max(adjustment?.AdvanceSalary ?? 0, 0);
-            decimal deductions = baseDeductions + fixedDeduction + advanceSalary;
+            decimal deductions = fixedDeduction + advanceSalary;
             decimal otRate = profile.OTRatePerHour > 0
                 ? profile.OTRatePerHour
                 : Math.Round(hourlyBasicRate * 1.5m, 2);
             decimal otAmount = totalOTHours * otRate;
-            decimal grossSalary = baseSalary + profile.ShiftAllowance + profile.TransportationFee + otAmount;
+            decimal grossSalary = baseSalary + profile.ShiftAllowance + transportAmount + otAmount;
             decimal netSalary = grossSalary - deductions;
 
             var existing = await _db.PayrollRecords

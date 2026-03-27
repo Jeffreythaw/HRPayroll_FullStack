@@ -41,6 +41,7 @@ public class EmployeeDto
     public string FullName => string.Join(" ", new[] { FirstName, LastName }.Where(x => !string.IsNullOrWhiteSpace(x)));
     public string Email { get; set; } = string.Empty;
     public string? Phone { get; set; }
+    public string? Bank { get; set; }
     public int DepartmentId { get; set; }
     public string DepartmentName { get; set; } = string.Empty;
     public string Position { get; set; } = string.Empty;
@@ -66,6 +67,7 @@ public class CreateEmployeeRequest
     public string LastName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string? Phone { get; set; }
+    public string? Bank { get; set; }
     public int DepartmentId { get; set; }
     public string Position { get; set; } = string.Empty;
     public string SalaryMode { get; set; } = "Monthly";

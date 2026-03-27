@@ -30,6 +30,7 @@ public class EmployeeService : IEmployeeService
         LastName = e.LastName,
         Email = e.Email,
         Phone = e.Phone,
+        Bank = e.Bank,
         DepartmentId = e.DepartmentId,
         DepartmentName = e.Department?.Name ?? "",
         Position = e.Position,
@@ -86,6 +87,7 @@ public class EmployeeService : IEmployeeService
             LastName = e.LastName,
             Email = e.Email,
             Phone = e.Phone,
+            Bank = e.Bank,
             DepartmentId = e.DepartmentId,
             DepartmentName = e.Department.Name,
             Position = e.Position,
@@ -122,6 +124,7 @@ public class EmployeeService : IEmployeeService
             LastName = req.LastName,
             Email = req.Email,
             Phone = req.Phone,
+            Bank = req.Bank?.Trim(),
             DepartmentId = req.DepartmentId,
             Position = req.Position,
             SalaryMode = req.SalaryMode,
@@ -153,6 +156,7 @@ public class EmployeeService : IEmployeeService
         emp.LastName = req.LastName;
         emp.Email = req.Email;
         emp.Phone = req.Phone;
+        emp.Bank = req.Bank?.Trim();
         emp.DepartmentId = req.DepartmentId;
         emp.Position = req.Position;
         emp.SalaryMode = req.SalaryMode;

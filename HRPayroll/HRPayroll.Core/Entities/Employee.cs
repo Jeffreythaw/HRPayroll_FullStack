@@ -9,6 +9,7 @@ public class Employee
     public string LastName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string? Phone { get; set; }
+    public string? Bank { get; set; }
     public int DepartmentId { get; set; }
     public string Position { get; set; } = string.Empty;
     public string SalaryMode { get; set; } = "Monthly"; // Monthly, Daily

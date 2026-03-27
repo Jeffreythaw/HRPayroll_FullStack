@@ -12,6 +12,7 @@ type EmployeeFormValues = {
   name: string;
   finNo?: string;
   phone?: string;
+  bank?: string;
   departmentId: number;
   joinDate?: string;
   salaryMode: string;
@@ -310,6 +311,7 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
         name: employee.fullName.trim(),
         finNo: employee.finNo || '',
         phone: employee.phone,
+        bank: employee.bank,
         departmentId: employee.departmentId,
         salaryMode: employee.salaryMode || (employee.dailyRate > 0 ? 'Daily' : 'Monthly'),
         basicSalary: employee.basicSalary,
@@ -324,6 +326,7 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
         name: '',
         finNo: '',
         phone: '',
+        bank: '',
         departmentId: 0,
         salaryMode: 'Monthly',
         basicSalary: 0,
@@ -361,6 +364,7 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
         lastName,
         email: isEdit && employee ? employee.email : derivedEmail,
         phone: data.phone,
+        bank: data.bank,
         departmentId: data.departmentId,
         position: isEdit && employee ? employee.position : 'Employee',
         salaryMode: data.salaryMode,
@@ -419,6 +423,9 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
               </FormField>
               <FormField label="Phone">
                 <input {...register('phone')} className="input" placeholder="+65 9123 4567" />
+              </FormField>
+              <FormField label="Bank">
+                <input {...register('bank')} className="input" placeholder="POSB / DBS / OCBC" />
               </FormField>
               <FormField label="Department" error={errors.departmentId?.message} required>
                 <select {...register('departmentId', { required: 'Required', valueAsNumber: true })} className="input">
