@@ -351,7 +351,63 @@ function ProcessPayrollModal({ open, onClose, employees, month, year, onProcesse
             <p className="text-xs text-slate-500">{targetProfiles.length} profile(s) selected</p>
           </div>
 
-          <div className="mt-3 overflow-x-auto">
+          <div className="mt-3 space-y-3 sm:hidden">
+            {targetProfiles.map(profile => (
+              <div key={profile.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-slate-900">{profile.employeeName}</p>
+                    <p className="text-xs font-mono text-slate-400">{profile.employeeCode}</p>
+                    <p className="text-xs text-slate-500 mt-1">{profile.profileName} · {profile.salaryMode}</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 gap-3">
+                  <FormField label="Advance Salary">
+                    <input
+                      type="number"
+                      step="0.01"
+                      inputMode="decimal"
+                      className="input"
+                      value={adjustments[profile.id]?.advanceSalary ?? 0}
+                      onChange={e => setAdjustments(prev => ({
+                        ...prev,
+                        [profile.id]: {
+                          advanceSalary: Number(e.target.value) || 0,
+                          deductionNoWork4Days: prev[profile.id]?.deductionNoWork4Days ?? 0,
+                        }
+                      }))}
+                      placeholder="0.00"
+                    />
+                  </FormField>
+                  <FormField label="No Work Deduction">
+                    <input
+                      type="number"
+                      step="0.01"
+                      inputMode="decimal"
+                      className="input"
+                      value={adjustments[profile.id]?.deductionNoWork4Days ?? 0}
+                      onChange={e => setAdjustments(prev => ({
+                        ...prev,
+                        [profile.id]: {
+                          advanceSalary: prev[profile.id]?.advanceSalary ?? 0,
+                          deductionNoWork4Days: Number(e.target.value) || 0,
+                        }
+                      }))}
+                      placeholder="0.00"
+                    />
+                  </FormField>
+                </div>
+              </div>
+            ))}
+            {targetProfiles.length === 0 && (
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-white/80 p-4 text-sm text-slate-400">
+                Select employees to load payroll profiles.
+              </div>
+            )}
+          </div>
+
+          <div className="mt-3 hidden overflow-x-auto sm:block">
             <table className="w-full min-w-[720px]">
               <thead>
                 <tr>
