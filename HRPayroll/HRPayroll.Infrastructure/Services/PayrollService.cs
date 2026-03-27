@@ -136,11 +136,12 @@ public class PayrollService : IPayrollService
             decimal transportDays = attendances.Count(a =>
                 a.Status is "Present" or "HalfDay" &&
                 !string.IsNullOrWhiteSpace(a.Transport));
-            decimal sundayPhDays = attendances.Count(a =>
-                a.Status is "Present" or "HalfDay" &&
-                a.Date.DayOfWeek == DayOfWeek.Sunday &&
-                !holidaySet.Contains(a.Date));
-            decimal sundayPhHours = sundayPhDays * Math.Max(profile.StandardWorkHours, 1);
+            decimal sundayPhHours = attendances
+                .Where(a =>
+                    a.Status is "Present" or "HalfDay" &&
+                    a.Date.DayOfWeek == DayOfWeek.Sunday &&
+                    !holidaySet.Contains(a.Date))
+                .Sum(a => a.WorkHours + a.OTHours);
             decimal publicHolidayHours = attendances
                 .Where(a => a.Status is "Present" or "HalfDay" && holidaySet.Contains(a.Date))
                 .Sum(a => a.WorkHours + a.OTHours);

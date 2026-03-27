@@ -476,11 +476,12 @@ public class ExcelReportService : IExcelReportService
                 !string.IsNullOrWhiteSpace(a.Transport));
             var transportAmount = Math.Round(Math.Max(profile.TransportationFee, 0) * transportDays * 2m, 2, MidpointRounding.AwayFromZero);
             var attendanceOtAmount = Math.Round(attendanceOtHours * otRate, 2, MidpointRounding.AwayFromZero);
-            var sundayPhDays = attendances.Count(a =>
-                a.Status is "Present" or "HalfDay" &&
-                a.Date.DayOfWeek == DayOfWeek.Sunday &&
-                !holidaySet.Contains(a.Date));
-            var sundayPhHours = sundayPhDays * Math.Max(profile.StandardWorkHours, 1);
+            var sundayPhHours = attendances
+                .Where(a =>
+                    a.Status is "Present" or "HalfDay" &&
+                    a.Date.DayOfWeek == DayOfWeek.Sunday &&
+                    !holidaySet.Contains(a.Date))
+                .Sum(a => a.WorkHours + a.OTHours);
             var sundayPhAmount = Math.Round(sundayPhHours * otRate, 2, MidpointRounding.AwayFromZero);
             var publicHolidayHours = attendances
                 .Where(a => a.Status is "Present" or "HalfDay" && holidaySet.Contains(a.Date))
@@ -496,7 +497,7 @@ public class ExcelReportService : IExcelReportService
                 new(baseLabel, baseAmount, false),
                 new("Shift Allowance", profile.ShiftAllowance, false),
                 new($"Total OT Hours {attendanceOtHours:N1} ({otRate:N2}/hr)", attendanceOtAmount, false),
-                new("OT @ Sunday/P.H (days)", sundayPhAmount, false),
+                new("OT @ Sunday/P.H (hrs)", sundayPhAmount, false),
                 new("OT @ Public Holiday (hrs)", publicHolidayAmount, false),
                 new("Transportation Fee", transportAmount, false)
             };

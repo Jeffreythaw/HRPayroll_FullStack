@@ -173,9 +173,12 @@ public class AttendanceService : IAttendanceService
         var startTime = start.Value.ToTimeSpan();
         var endTime = end.Value.ToTimeSpan();
         var totalHours = (endTime - startTime).TotalHours;
-        if (isOvernight)
+        var inferredOvernight = endTime < startTime;
+        var overnight = isOvernight || inferredOvernight;
+
+        if (overnight)
         {
-            if (totalHours > 0)
+            if (isOvernight && !inferredOvernight)
             {
                 throw new InvalidOperationException("Night shift should end on the next day and finish earlier than Start time.");
             }
@@ -198,5 +201,5 @@ public class AttendanceService : IAttendanceService
     private static bool RequiresTime(string status) => status is "Present" or "HalfDay";
 
     private static bool IsOvernight(TimeOnly? start, TimeOnly? end)
-        => start.HasValue && end.HasValue && end.Value <= start.Value;
+        => start.HasValue && end.HasValue && end.Value < start.Value;
 }

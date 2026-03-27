@@ -445,7 +445,7 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
             Keep this section to stable pay setup. Sunday / public holiday premiums are calculated from attendance and the Singapore public holiday calendar.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <FormField label="Salary Mode" required>
+              <FormField label="Salary Mode" required>
               <select {...register('salaryMode')} className="input">
                   <option value="Monthly">Monthly</option>
                   <option value="Daily">Daily</option>
@@ -496,10 +496,10 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
               <FormField label="Shift Allowance S$">
                 <input {...register('shiftAllowance', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
               </FormField>
-              <FormField label="Transportation Fee (per transport day)">
+              <FormField label="Transportation Fee (per trip)">
                 <input {...register('transportationFee', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
                 <p className="mt-1 text-xs text-slate-400">
-                  Payroll multiplies this by transport days, so enter the per-day amount here.
+                  Payroll multiplies this by transport days and round trips automatically.
                 </p>
               </FormField>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -792,10 +792,10 @@ function EmployeeProfilesModal({ open, onClose, employee }: { open: boolean; onC
               <FormField label="Shift Allowance S$">
                 <input {...register('shiftAllowance', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
               </FormField>
-              <FormField label="Transportation Fee (per transport day)">
+              <FormField label="Transportation Fee (per trip)">
                 <input {...register('transportationFee', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
                 <p className="mt-1 text-xs text-slate-400">
-                  Enter the per-day transport amount used by payroll calculations.
+                  Payroll multiplies this by transport days and round trips automatically.
                 </p>
               </FormField>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:col-span-2">

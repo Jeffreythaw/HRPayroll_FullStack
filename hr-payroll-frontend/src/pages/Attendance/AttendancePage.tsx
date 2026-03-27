@@ -422,7 +422,9 @@ function AttendanceFormModal({
         ...data,
         start: normalizeTimeInput(data.start),
         end: normalizeTimeInput(data.end),
-        isOvernight: data.status === 'Present' || data.status === 'HalfDay' ? !!data.isOvernight : false,
+        isOvernight: data.status === 'Present' || data.status === 'HalfDay'
+          ? !!data.isOvernight || isOvernightPunch(data.start, data.end)
+          : false,
       };
       if (payload.status !== 'Present' && payload.status !== 'HalfDay') {
         payload.start = undefined;
@@ -444,7 +446,7 @@ function AttendanceFormModal({
   };
 
   const needsTime = status === 'Present' || status === 'HalfDay';
-  const preview = getAttendancePreview(start, end, standardHours, !!isOvernight, needsTime);
+  const preview = getAttendancePreview(start, end, standardHours, !!isOvernight || isOvernightPunch(start, end), needsTime);
 
   return (
     <Modal
@@ -503,9 +505,9 @@ function AttendanceFormModal({
                 />
                 <span>
                   <span className="font-semibold text-slate-900">Night shift / next-day checkout</span>
-                  <span className="block text-xs text-slate-500 mt-1">
-                    Use this for punches like 9:00 PM → 9:00 AM. The backend will still apply the company lunch-break rule for shifts over 6 hours.
-                  </span>
+                    <span className="block text-xs text-slate-500 mt-1">
+                      Use this for punches like 9:00 PM → 9:00 AM. The backend will also auto-detect overnight punches when End is earlier than Start.
+                    </span>
                 </span>
               </label>
               <div className="md:col-span-2 rounded-xl border border-indigo-100 bg-indigo-50/70 p-3 text-sm text-slate-700">
@@ -538,7 +540,7 @@ function AttendanceFormModal({
               {siteProjects.map(x => <option key={x.id} value={x.name} />)}
             </datalist>
           </FormField>
-          <FormField label="Transport">
+          <FormField label="Transport (one-way trip)">
             <input
               {...register('transport')}
               className="input"
@@ -548,6 +550,9 @@ function AttendanceFormModal({
             <datalist id="transport-options">
               {transports.map(x => <option key={x.id} value={x.name} />)}
             </datalist>
+            <p className="mt-1 text-xs text-slate-400">
+              Payroll treats this as the per-trip transport amount and calculates the round trip automatically.
+            </p>
           </FormField>
         </div>
 
@@ -556,7 +561,7 @@ function AttendanceFormModal({
         </FormField>
 
         <p className="text-xs text-slate-500 bg-slate-50 rounded-lg p-3">
-          Work hours and OT hours are calculated by the backend from Start / End, the night-shift toggle, and the employee's standard work hours.
+          Work hours and OT hours are calculated by the backend from Start / End, with overnight punches auto-detected when End is earlier than Start.
         </p>
       </div>
     </Modal>
@@ -575,6 +580,11 @@ function validateAttendanceRange(start?: string, end?: string, isOvernight = fal
 
   const startMinutes = timeToMinutes(start);
   const endMinutes = timeToMinutes(end);
+  const inferredOvernight = endMinutes < startMinutes;
+
+  if (inferredOvernight) {
+    return true;
+  }
 
   if (isOvernight) {
     return endMinutes < startMinutes;
@@ -584,7 +594,7 @@ function validateAttendanceRange(start?: string, end?: string, isOvernight = fal
 
 function isOvernightPunch(start?: string, end?: string) {
   if (!start || !end) return false;
-  return timeToMinutes(end) <= timeToMinutes(start);
+  return timeToMinutes(end) < timeToMinutes(start);
 }
 
 type AttendancePreview =
