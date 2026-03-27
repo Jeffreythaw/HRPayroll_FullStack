@@ -14,6 +14,7 @@ The script supports --dry-run and will print a summary before modifying data.
 from __future__ import annotations
 
 import argparse
+import calendar
 import os
 import re
 from dataclasses import dataclass
@@ -111,6 +112,7 @@ def extract_times_and_numbers(value: object) -> tuple[Optional[time], Optional[t
 def build_records(workbook_path: Path, employee_map: dict[str, int]) -> list[AttendanceRow]:
     wb = load_workbook(workbook_path, data_only=True)
     records: list[AttendanceRow] = []
+    month_days = calendar.monthrange(2026, 2)[1]
 
     for sheet_name in wb.sheetnames:
         if sheet_name not in PRIMARY_SHEETS:
@@ -121,12 +123,14 @@ def build_records(workbook_path: Path, employee_map: dict[str, int]) -> list[Att
         if employee_id is None:
             raise RuntimeError(f"No employee found in database for sheet '{sheet_name}'")
 
+        day_map: dict[int, AttendanceRow] = {}
         for row_idx in range(10, 38):
             day_value = ws.cell(row_idx, 3).value
             if day_value in (None, ""):
                 continue
 
-            date_value = datetime(2026, 2, int(day_value)).date()
+            day = int(day_value)
+            date_value = datetime(2026, 2, day).date()
             raw_start = ws.cell(row_idx, 4).value
             raw_end = ws.cell(row_idx, 5).value
             raw_work = ws.cell(row_idx, 6).value
@@ -173,20 +177,37 @@ def build_records(workbook_path: Path, employee_map: dict[str, int]) -> list[Att
                 # Skip stray blank rows that do not contain usable attendance data.
                 continue
 
-            records.append(
-                AttendanceRow(
-                    employee_id=employee_id,
-                    date=date_value,
-                    status=status,
-                    start=start_time,
-                    end=end_time,
-                    work_hours=round(work_hours, 2),
-                    ot_hours=round(ot_hours, 2),
-                    site_project=site_project,
-                    transport=transport,
-                    remarks=remarks,
-                )
+            day_map[day] = AttendanceRow(
+                employee_id=employee_id,
+                date=date_value,
+                status=status,
+                start=start_time,
+                end=end_time,
+                work_hours=round(work_hours, 2),
+                ot_hours=round(ot_hours, 2),
+                site_project=site_project,
+                transport=transport,
+                remarks=remarks,
             )
+
+        # Any missing diary day in the workbook is treated as an absent workday.
+        # Sundays/public holidays are already present explicitly in the diary sheets.
+        for day in range(1, month_days + 1):
+            if day not in day_map:
+                day_map[day] = AttendanceRow(
+                    employee_id=employee_id,
+                    date=datetime(2026, 2, day).date(),
+                    status="Absent",
+                    start=None,
+                    end=None,
+                    work_hours=0.0,
+                    ot_hours=0.0,
+                    site_project=None,
+                    transport=None,
+                    remarks="NO WORK",
+                )
+
+        records.extend(day_map[day] for day in sorted(day_map))
 
     return records
 

@@ -144,7 +144,15 @@ public class AttendanceService : IAttendanceService
     public (decimal workHours, decimal otHours) CalculateHours(TimeOnly? start, TimeOnly? end, int standardHours)
     {
         if (!start.HasValue || !end.HasValue) return (0, 0);
-        var total = (decimal)(end.Value - start.Value).TotalHours;
+        // Support overnight shifts (for example 9:00 PM -> 9:00 AM next day).
+        var startTime = start.Value.ToTimeSpan();
+        var endTime = end.Value.ToTimeSpan();
+        var totalHours = (endTime - startTime).TotalHours;
+        if (totalHours <= 0)
+        {
+            totalHours += 24;
+        }
+        var total = (decimal)totalHours;
         if (total <= 0) return (0, 0);
         // Deduct 1 hour lunch break if > 6 hours
         var effective = total > 6 ? total - 1 : total;
