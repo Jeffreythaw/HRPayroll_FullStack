@@ -286,6 +286,27 @@ public class PublicHolidaysController : ControllerBase
         {
             return BadRequest(new { message = ex.Message });
         }
+        catch (HttpRequestException)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                message = "Singapore public holiday sync is temporarily unavailable. Please try again in a minute."
+            });
+        }
+        catch (TaskCanceledException)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                message = "Singapore public holiday sync timed out. Please try again in a minute."
+            });
+        }
+        catch (Exception)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                message = "Singapore public holiday sync failed unexpectedly. Please try again later."
+            });
+        }
     }
 }
 
