@@ -440,16 +440,17 @@ public class ExcelReportService : IExcelReportService
                     });
 
             var salaryMode = string.IsNullOrWhiteSpace(profile.SalaryMode) ? "Monthly" : profile.SalaryMode;
+            var isDaily = salaryMode.Equals("Daily", StringComparison.OrdinalIgnoreCase);
             var otRate = payroll.TotalOTHours > 0
                 ? (profile.OTRatePerHour > 0 ? profile.OTRatePerHour : payroll.OTAmount / payroll.TotalOTHours)
                 : profile.OTRatePerHour;
-            var baseLabel = salaryMode.Equals("Daily", StringComparison.OrdinalIgnoreCase)
+            var baseLabel = isDaily
                 ? $"Salary For {periodLabel}"
                 : $"Monthly Salary ({periodLabel})";
             var baseAmount = payroll.BasicSalary;
             var dailyRate = payroll.DailyRate > 0
                 ? payroll.DailyRate
-                : (salaryMode.Equals("Daily", StringComparison.OrdinalIgnoreCase) ? profile.DailyRate : (workingDays > 0 ? payroll.BasicSalary / workingDays : 0));
+                : (isDaily ? profile.DailyRate : (workingDays > 0 ? payroll.BasicSalary / workingDays : 0));
 
             var attendanceOtHours = payroll.TotalOTHours - (profile.SundayPhOtDays * profile.StandardWorkHours) - profile.PublicHolidayOtHours;
             if (attendanceOtHours < 0) attendanceOtHours = 0;
@@ -457,8 +458,8 @@ public class ExcelReportService : IExcelReportService
             var attendanceOtAmount = Math.Round(attendanceOtHours * otRate, 2, MidpointRounding.AwayFromZero);
             var sundayPhAmount = Math.Round(profile.SundayPhOtDays * profile.StandardWorkHours * otRate, 2, MidpointRounding.AwayFromZero);
             var publicHolidayAmount = Math.Round(profile.PublicHolidayOtHours * otRate, 2, MidpointRounding.AwayFromZero);
-            var noWorkDeduction = Math.Round(payroll.AbsentDays * dailyRate, 2, MidpointRounding.AwayFromZero);
-            var fixedDeduction = Math.Round(profile.DeductionNoWork4Days, 2, MidpointRounding.AwayFromZero);
+            var noWorkDeduction = isDaily ? 0 : Math.Round(payroll.AbsentDays * dailyRate, 2, MidpointRounding.AwayFromZero);
+            var fixedDeduction = isDaily ? 0 : Math.Round(profile.DeductionNoWork4Days, 2, MidpointRounding.AwayFromZero);
             var advanceSalary = Math.Round(profile.AdvanceSalary, 2, MidpointRounding.AwayFromZero);
 
             var lines = new List<VoucherLineItem>
@@ -468,13 +469,21 @@ public class ExcelReportService : IExcelReportService
                 new($"Total OT Hours {attendanceOtHours:N1} ({otRate:N2}/hr)", attendanceOtAmount, false),
                 new("OT @ Sunday/P.H (days)", sundayPhAmount, false),
                 new("OT @ Public Holiday (hrs)", publicHolidayAmount, false),
-                new("Transportation Fee", profile.TransportationFee, false),
-                new(payroll.AbsentDays > 0
-                    ? $"Deduction (No Work / {payroll.AbsentDays} days)"
-                    : "Deduction (No Work)", -noWorkDeduction, true),
-                new("Deduction (No Work / 4 days)", -fixedDeduction, true),
-                new("Advance Salary Deduction", -advanceSalary, true)
+                new("Transportation Fee", profile.TransportationFee, false)
             };
+
+            if (!isDaily)
+            {
+                lines.Add(new VoucherLineItem(
+                    payroll.AbsentDays > 0
+                        ? $"Deduction (No Work / {payroll.AbsentDays} days)"
+                        : "Deduction (No Work)",
+                    -noWorkDeduction,
+                    true));
+                lines.Add(new VoucherLineItem("Deduction (No Work / 4 days)", -fixedDeduction, true));
+            }
+
+            lines.Add(new VoucherLineItem("Advance Salary Deduction", -advanceSalary, true));
 
             var totalAmount = lines.Sum(x => x.Amount);
 

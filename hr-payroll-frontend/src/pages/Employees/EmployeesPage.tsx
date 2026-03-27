@@ -504,7 +504,7 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
                 <input {...register('deductionNoWork4Days', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
               </FormField>
               <p className="sm:col-span-2 text-xs text-slate-500 -mt-2">
-                Advance salary is treated as a net deduction in the payment voucher.
+                Advance salary is treated as a net deduction in the payment voucher. The no-work deduction is applied only for monthly staff.
               </p>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">OT Rate / Hour</p>
@@ -815,7 +815,7 @@ function EmployeeProfilesModal({ open, onClose, employee }: { open: boolean; onC
                 <input {...register('deductionNoWork4Days', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
               </FormField>
               <p className="sm:col-span-2 text-xs text-slate-500 -mt-2">
-                Advance salary is deducted from the final net salary.
+                Advance salary is deducted from the final net salary. The no-work deduction is applied only for monthly staff.
               </p>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">OT Rate / Hour</p>

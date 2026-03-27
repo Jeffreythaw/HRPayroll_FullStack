@@ -132,21 +132,23 @@ public class PayrollService : IPayrollService
             decimal totalOTHours = attendanceOTHours + sundayPhHours + publicHolidayHours;
 
             var salaryMode = string.IsNullOrWhiteSpace(profile.SalaryMode) ? "Monthly" : profile.SalaryMode;
+            var isDaily = salaryMode.Equals("Daily", StringComparison.OrdinalIgnoreCase);
             decimal grossMonthlyRate = salaryMode.Equals("Daily", StringComparison.OrdinalIgnoreCase)
                 ? 0
                 : profile.BasicSalary + profile.ShiftAllowance;
-            decimal dailyRate = salaryMode.Equals("Daily", StringComparison.OrdinalIgnoreCase)
+            decimal dailyRate = isDaily
                 ? (profile.DailyRate > 0 ? profile.DailyRate : 0)
                 : (workingDays > 0 ? grossMonthlyRate / workingDays : 0);
-            decimal hourlyBasicRate = salaryMode.Equals("Daily", StringComparison.OrdinalIgnoreCase)
+            decimal hourlyBasicRate = isDaily
                 ? (profile.DailyRate > 0 ? profile.DailyRate : 0) / Math.Max(profile.StandardWorkHours, 1)
                 : (profile.BasicSalary * 12m) / (52m * 44m);
 
-            decimal baseSalary = salaryMode.Equals("Daily", StringComparison.OrdinalIgnoreCase)
+            decimal baseSalary = isDaily
                 ? dailyRate * presentDays
                 : profile.BasicSalary;
-            decimal baseDeductions = absentDays * dailyRate;
-            decimal deductions = baseDeductions + profile.DeductionNoWork4Days + profile.AdvanceSalary;
+            decimal baseDeductions = isDaily ? 0 : absentDays * dailyRate;
+            decimal fixedDeduction = isDaily ? 0 : profile.DeductionNoWork4Days;
+            decimal deductions = baseDeductions + fixedDeduction + profile.AdvanceSalary;
             decimal otRate = profile.OTRatePerHour > 0
                 ? profile.OTRatePerHour
                 : Math.Round(hourlyBasicRate * 1.5m, 2);
