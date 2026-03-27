@@ -464,9 +464,15 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
                   })}
                   type="number"
                   step="0.01"
-                  className="input"
-                  placeholder="3000.00"
+                  readOnly={salaryMode === 'Daily'}
+                  className={`input ${salaryMode === 'Daily' ? 'bg-slate-50 text-slate-500' : ''}`}
+                  placeholder={salaryMode === 'Daily' ? '0.00' : '3000.00'}
                 />
+                <p className="mt-1 text-xs text-slate-400">
+                  {salaryMode === 'Daily'
+                    ? 'Not used for daily-rated staff.'
+                    : 'Used as the monthly base for monthly-rated staff.'}
+                </p>
               </FormField>
               <FormField label="Daily Rate S$" error={errors.dailyRate?.message} required={salaryMode === 'Daily'}>
                 <input
@@ -477,15 +483,24 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
                   })}
                   type="number"
                   step="0.01"
-                  className="input"
+                  readOnly={salaryMode === 'Monthly'}
+                  className={`input ${salaryMode === 'Monthly' ? 'bg-slate-50 text-slate-500' : ''}`}
                   placeholder={salaryMode === 'Daily' ? '24.00' : '0.00'}
                 />
+                <p className="mt-1 text-xs text-slate-400">
+                  {salaryMode === 'Daily'
+                    ? 'Used for daily-rated staff.'
+                    : 'Auto-derived from monthly basic during payroll processing.'}
+                </p>
               </FormField>
               <FormField label="Shift Allowance S$">
                 <input {...register('shiftAllowance', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
               </FormField>
-              <FormField label="Transportation Fee">
+              <FormField label="Transportation Fee (per transport day)">
                 <input {...register('transportationFee', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
+                <p className="mt-1 text-xs text-slate-400">
+                  Payroll multiplies this by transport days, so enter the per-day amount here.
+                </p>
               </FormField>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">OT Rate / Hour</p>
@@ -745,16 +760,43 @@ function EmployeeProfilesModal({ open, onClose, employee }: { open: boolean; onC
                 </select>
               </FormField>
               <FormField label="Monthly Salary BASIC S$" required={salaryMode === 'Monthly'}>
-                <input {...register('basicSalary', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
+                <input
+                  {...register('basicSalary', { valueAsNumber: true })}
+                  type="number"
+                  step="0.01"
+                  readOnly={salaryMode === 'Daily'}
+                  className={`input ${salaryMode === 'Daily' ? 'bg-slate-50 text-slate-500' : ''}`}
+                  placeholder={salaryMode === 'Daily' ? '0.00' : '3000.00'}
+                />
+                <p className="mt-1 text-xs text-slate-400">
+                  {salaryMode === 'Daily'
+                    ? 'Not used for daily-rated profiles.'
+                    : 'Used as the monthly base for monthly-rated profiles.'}
+                </p>
               </FormField>
               <FormField label="Daily Rate S$" required={salaryMode === 'Daily'}>
-                <input {...register('dailyRate', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder={salaryMode === 'Daily' ? '24.00' : '0.00'} />
+                <input
+                  {...register('dailyRate', { valueAsNumber: true })}
+                  type="number"
+                  step="0.01"
+                  readOnly={salaryMode === 'Monthly'}
+                  className={`input ${salaryMode === 'Monthly' ? 'bg-slate-50 text-slate-500' : ''}`}
+                  placeholder={salaryMode === 'Daily' ? '24.00' : '0.00'}
+                />
+                <p className="mt-1 text-xs text-slate-400">
+                  {salaryMode === 'Daily'
+                    ? 'Used for daily-rated profiles.'
+                    : 'Auto-derived from monthly basic during payroll processing.'}
+                </p>
               </FormField>
               <FormField label="Shift Allowance S$">
                 <input {...register('shiftAllowance', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
               </FormField>
-              <FormField label="Transportation Fee">
+              <FormField label="Transportation Fee (per transport day)">
                 <input {...register('transportationFee', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
+                <p className="mt-1 text-xs text-slate-400">
+                  Enter the per-day transport amount used by payroll calculations.
+                </p>
               </FormField>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:col-span-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">OT Rate / Hour</p>

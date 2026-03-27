@@ -18,7 +18,7 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-async function saveBlob(blob: Blob, filename: string) {
+export async function openSaveFileHandle(filename: string) {
   const anyWindow = window as Window & {
     showSaveFilePicker?: (options: {
       suggestedName?: string;
@@ -29,26 +29,29 @@ async function saveBlob(blob: Blob, filename: string) {
     }) => Promise<FileSystemFileHandle>;
   };
 
-  if (typeof anyWindow.showSaveFilePicker === 'function') {
-    const handle = await anyWindow.showSaveFilePicker({
-      suggestedName: filename,
-      types: [
-        {
-          description: filename.endsWith('.pdf') ? 'PDF document' : 'Spreadsheet',
-          accept: {
-            [filename.endsWith('.pdf') ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']:
-              [filename.split('.').pop() === 'pdf' ? '.pdf' : '.xlsx'],
-          },
+  if (typeof anyWindow.showSaveFilePicker !== 'function') return null;
+
+  return anyWindow.showSaveFilePicker({
+    suggestedName: filename,
+    types: [
+      {
+        description: filename.endsWith('.pdf') ? 'PDF document' : 'Spreadsheet',
+        accept: {
+          [filename.endsWith('.pdf') ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']:
+            [filename.split('.').pop() === 'pdf' ? '.pdf' : '.xlsx'],
         },
-      ],
-    });
+      },
+    ],
+  });
+}
 
-    const writable = await handle.createWritable();
-    await writable.write(blob);
-    await writable.close();
-    return;
-  }
+export async function saveBlobToHandle(blob: Blob, handle: FileSystemFileHandle) {
+  const writable = await handle.createWritable();
+  await writable.write(blob);
+  await writable.close();
+}
 
+export async function saveBlobFallback(blob: Blob, filename: string) {
   const url = window.URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -164,15 +167,13 @@ export const payrollApi = {
 
 // ─── Reports ──────────────────────────────────────────────────
 export const reportApi = {
-  generateExcel: async (data: ExcelReportRequest) => {
+  fetchExcelBlob: async (data: ExcelReportRequest) => {
     const response = await api.post('/reports/excel', data, { responseType: 'blob' });
-    const monthName = new Date(data.year, data.month - 1).toLocaleString('default', { month: 'long' });
-    await saveBlob(new Blob([response.data]), `Payroll_Report_${monthName}_${data.year}.xlsx`);
+    return new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   },
-  generatePaymentVoucher: async (data: ExcelReportRequest) => {
+  fetchPaymentVoucherBlob: async (data: ExcelReportRequest) => {
     const response = await api.post('/reports/payment-voucher', data, { responseType: 'blob' });
-    const monthName = new Date(data.year, data.month - 1).toLocaleString('default', { month: 'short' });
-    await saveBlob(new Blob([response.data]), `Payment_Voucher_${monthName}_${data.year}.pdf`);
+    return new Blob([response.data], { type: 'application/pdf' });
   },
 };
 

@@ -48,6 +48,7 @@ public class ExcelReportService : IExcelReportService
 
         var monthName = new DateTime(req.Year, req.Month, 1).ToString("MMMM yyyy");
         var daysInMonth = DateTime.DaysInMonth(req.Year, req.Month);
+        var usedSheetNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         using var workbook = new XLWorkbook();
         workbook.Style.Font.FontName = "Calibri";
@@ -80,8 +81,7 @@ public class ExcelReportService : IExcelReportService
                 .ToListAsync();
 
             var profileName = string.IsNullOrWhiteSpace(profile.ProfileName) ? "Primary" : profile.ProfileName;
-            var sheetTitle = $"{emp.EmployeeCode} - {profileName}";
-            var sheetName = sheetTitle[..Math.Min(31, sheetTitle.Length)];
+            var sheetName = BuildWorksheetName($"{emp.FirstName} {emp.LastName}".Trim(), profileName, usedSheetNames);
             var ws = workbook.Worksheets.Add(sheetName);
 
             // ── Page Title ───────────────────────────────────────────
@@ -702,6 +702,50 @@ public class ExcelReportService : IExcelReportService
 
     private static string FormatMoney(decimal amount)
         => Math.Abs(amount) < 0.005m ? "0.00" : amount.ToString("N2");
+
+    private static string BuildWorksheetName(string employeeName, string profileName, HashSet<string> usedNames)
+    {
+        static string Sanitize(string value)
+        {
+            var invalid = Path.GetInvalidFileNameChars().Concat(new[] { '[', ']', ':', '*', '?', '/', '\\' }).ToHashSet();
+            var cleaned = new string(value.Where(ch => !invalid.Contains(ch)).ToArray()).Trim();
+            return string.IsNullOrWhiteSpace(cleaned) ? "Payroll" : cleaned;
+        }
+
+        var baseName = Sanitize(employeeName);
+        var candidate = baseName;
+
+        if (usedNames.Contains(candidate))
+        {
+            var profileSuffix = Sanitize(profileName);
+            candidate = string.IsNullOrWhiteSpace(profileSuffix)
+                ? baseName
+                : $"{baseName} - {profileSuffix}";
+        }
+
+        candidate = candidate[..Math.Min(candidate.Length, 31)];
+        if (!usedNames.Contains(candidate))
+        {
+            usedNames.Add(candidate);
+            return candidate;
+        }
+
+        var counter = 2;
+        while (true)
+        {
+            var suffix = $" - {counter}";
+            var maxBaseLength = Math.Max(1, 31 - suffix.Length);
+            var trimmedBase = candidate[..Math.Min(candidate.Length, maxBaseLength)];
+            var unique = $"{trimmedBase}{suffix}";
+            if (!usedNames.Contains(unique))
+            {
+                usedNames.Add(unique);
+                return unique;
+            }
+
+            counter++;
+        }
+    }
 }
 
 internal sealed record VoucherLineItem(string Label, decimal Amount, bool IsDeduction);

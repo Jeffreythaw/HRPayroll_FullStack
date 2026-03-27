@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { reportApi, employeeProfileApi } from '../../api';
+import { employeeProfileApi, openSaveFileHandle, reportApi, saveBlobFallback, saveBlobToHandle } from '../../api';
 import { PageHeader, MonthYearPicker, Spinner } from '../../components/ui';
 import { currentMonthYear, MONTHS } from '../../utils';
 import type { EmployeePayrollProfile } from '../../types';
@@ -48,7 +48,14 @@ export default function ReportsPage() {
   const handleGenerateExcel = async () => {
     setGenerating(true);
     try {
-      await reportApi.generateExcel(buildRequest());
+      const filename = `Payroll_Report_${monthName}_${selYear}.xlsx`;
+      const saveHandle = await openSaveFileHandle(filename);
+      const blob = await reportApi.fetchExcelBlob(buildRequest());
+      if (saveHandle) {
+        await saveBlobToHandle(blob, saveHandle);
+      } else {
+        await saveBlobFallback(blob, filename);
+      }
       const count = selectedProfileIds.length || filteredProfiles.length;
       toast.success(`Excel report saved for ${count} profile(s)`);
     } catch (err) {
@@ -62,7 +69,14 @@ export default function ReportsPage() {
   const handleGenerateVoucher = async () => {
     setGenerating(true);
     try {
-      await reportApi.generatePaymentVoucher(buildRequest());
+      const filename = `Payment_Voucher_${monthName}_${selYear}.pdf`;
+      const saveHandle = await openSaveFileHandle(filename);
+      const blob = await reportApi.fetchPaymentVoucherBlob(buildRequest());
+      if (saveHandle) {
+        await saveBlobToHandle(blob, saveHandle);
+      } else {
+        await saveBlobFallback(blob, filename);
+      }
       const count = selectedProfileIds.length || filteredProfiles.length;
       toast.success(`Payment voucher saved for ${count} profile(s)`);
     } catch (err) {
@@ -205,7 +219,7 @@ export default function ReportsPage() {
                 <div className="flex justify-between">
                   <span className="text-slate-500">Worksheets</span>
                   <span className="font-semibold">
-                    1 per profile
+                    Employee name, profile suffix if needed
                   </span>
                 </div>
               </div>
