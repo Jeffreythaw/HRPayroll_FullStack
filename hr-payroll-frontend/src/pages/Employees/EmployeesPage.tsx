@@ -18,8 +18,6 @@ type EmployeeFormValues = {
   basicSalary: number;
   dailyRate: number;
   shiftAllowance: number;
-  sundayPhOtDays: number;
-  publicHolidayOtHours: number;
   transportationFee: number;
   status: string;
 };
@@ -294,8 +292,6 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
       basicSalary: 0,
       dailyRate: 0,
       shiftAllowance: 0,
-      sundayPhOtDays: 0,
-      publicHolidayOtHours: 0,
       transportationFee: 0,
       departmentId: 0,
       status: 'Active',
@@ -319,8 +315,6 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
         basicSalary: employee.basicSalary,
         dailyRate: employee.dailyRate,
         shiftAllowance: employee.shiftAllowance,
-        sundayPhOtDays: employee.sundayPhOtDays,
-        publicHolidayOtHours: employee.publicHolidayOtHours,
         transportationFee: employee.transportationFee,
         joinDate: employee.joinDate || '',
         status: employee.status,
@@ -335,8 +329,6 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
         basicSalary: 0,
         dailyRate: 0,
         shiftAllowance: 0,
-        sundayPhOtDays: 0,
-        publicHolidayOtHours: 0,
         transportationFee: 0,
         status: 'Active',
         joinDate: '',
@@ -376,8 +368,6 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
         dailyRate: data.dailyRate,
         shiftAllowance: data.shiftAllowance,
         otRatePerHour: autoOtRate,
-        sundayPhOtDays: data.sundayPhOtDays,
-        publicHolidayOtHours: data.publicHolidayOtHours,
         transportationFee: data.transportationFee,
         standardWorkHours: 8,
         joinDate: data.joinDate || null,
@@ -442,11 +432,14 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
             </div>
           </div>
 
-          <div>
-            <h3 className="text-sm font-semibold text-slate-700 mb-3">Salary & Allowances</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField label="Salary Mode" required>
-                <select {...register('salaryMode')} className="input">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">Salary & Allowances</h3>
+          <p className="mb-3 text-xs text-slate-500">
+            Keep this section to stable pay setup. Sunday / public holiday premiums are calculated from attendance and the Singapore public holiday calendar.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <FormField label="Salary Mode" required>
+              <select {...register('salaryMode')} className="input">
                   <option value="Monthly">Monthly</option>
                   <option value="Daily">Daily</option>
                 </select>
@@ -499,18 +492,6 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
         </div>
 
         <div className="space-y-4">
-          <div>
-            <h3 className="text-sm font-semibold text-slate-700 mb-3">OT Details</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField label="OT @ Sunday/P.H (days)">
-                <input {...register('sundayPhOtDays', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0" />
-              </FormField>
-              <FormField label="OT @ Public Holiday (hrs)">
-                <input {...register('publicHolidayOtHours', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0" />
-              </FormField>
-            </div>
-          </div>
-
           {isEdit && (
             <div>
               <h3 className="text-sm font-semibold text-slate-700 mb-3">Status</h3>
@@ -536,8 +517,6 @@ type ProfileFormValues = {
   dailyRate: number;
   shiftAllowance: number;
   otRatePerHour: number;
-  sundayPhOtDays: number;
-  publicHolidayOtHours: number;
   transportationFee: number;
   standardWorkHours: number;
   status: string;
@@ -557,8 +536,6 @@ function EmployeeProfilesModal({ open, onClose, employee }: { open: boolean; onC
       dailyRate: 0,
       shiftAllowance: 0,
       otRatePerHour: 0,
-      sundayPhOtDays: 0,
-      publicHolidayOtHours: 0,
       transportationFee: 0,
       standardWorkHours: 8,
       status: 'Active',
@@ -594,8 +571,6 @@ function EmployeeProfilesModal({ open, onClose, employee }: { open: boolean; onC
         dailyRate: 0,
         shiftAllowance: 0,
         otRatePerHour: 0,
-        sundayPhOtDays: 0,
-        publicHolidayOtHours: 0,
         transportationFee: 0,
         standardWorkHours: 8,
         status: 'Active',
@@ -612,8 +587,6 @@ function EmployeeProfilesModal({ open, onClose, employee }: { open: boolean; onC
       dailyRate: profile.dailyRate,
       shiftAllowance: profile.shiftAllowance,
       otRatePerHour: profile.otRatePerHour,
-      sundayPhOtDays: profile.sundayPhOtDays,
-      publicHolidayOtHours: profile.publicHolidayOtHours,
       transportationFee: profile.transportationFee,
       standardWorkHours: profile.standardWorkHours,
       status: profile.status,
@@ -629,8 +602,6 @@ function EmployeeProfilesModal({ open, onClose, employee }: { open: boolean; onC
       dailyRate: 0,
       shiftAllowance: 0,
       otRatePerHour: 0,
-      sundayPhOtDays: 0,
-      publicHolidayOtHours: 0,
       transportationFee: 0,
       standardWorkHours: 8,
       status: 'Active',
@@ -649,8 +620,6 @@ function EmployeeProfilesModal({ open, onClose, employee }: { open: boolean; onC
         dailyRate: data.dailyRate,
         shiftAllowance: data.shiftAllowance,
         otRatePerHour: data.otRatePerHour > 0 ? data.otRatePerHour : autoOtRate,
-        sundayPhOtDays: data.sundayPhOtDays,
-        publicHolidayOtHours: data.publicHolidayOtHours,
         transportationFee: data.transportationFee,
         standardWorkHours: data.standardWorkHours,
         isPrimary: false,
@@ -755,6 +724,9 @@ function EmployeeProfilesModal({ open, onClose, employee }: { open: boolean; onC
         <div className="space-y-4">
           <div>
             <h3 className="text-sm font-semibold text-slate-700 mb-3">{editingProfile ? 'Edit Secondary Profile' : 'Add Secondary Profile'}</h3>
+            <p className="mb-3 text-xs text-slate-500">
+              Use this for fixed salary structure only. Sunday / public holiday premium is derived from attendance and public holiday data during payroll processing.
+            </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField label="Profile Name" error={errors.profileName?.message} required>
                 <input {...register('profileName', { required: 'Required' })} className="input" placeholder="Transport Included" />
@@ -777,7 +749,7 @@ function EmployeeProfilesModal({ open, onClose, employee }: { open: boolean; onC
               <FormField label="Transportation Fee">
                 <input {...register('transportationFee', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
               </FormField>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:col-span-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">OT Rate / Hour</p>
                 <p className="mt-2 text-lg font-semibold text-slate-900">{formatCurrency(autoOtRate)}</p>
                 <p className="mt-1 text-xs text-slate-500">Auto calculated unless you type a custom amount below.</p>

@@ -313,6 +313,7 @@ function ProcessPayrollModal({ open, onClose, employees, month, year, onProcesse
       <div className="space-y-4">
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-700">
           <strong>Note:</strong> This will calculate salaries based on attendance records.
+          Sunday / public holiday premiums are derived automatically from attendance and the Singapore public holiday calendar.
           Existing draft records will be recalculated.
         </div>
         <div>

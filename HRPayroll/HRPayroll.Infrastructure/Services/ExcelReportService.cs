@@ -26,6 +26,10 @@ public class ExcelReportService : IExcelReportService
 
     public async Task<byte[]> GenerateMonthlyReportAsync(ExcelReportRequest req)
     {
+        await _publicHolidayService.EnsureYearAsync(req.Year);
+        var holidayDates = await _publicHolidayService.GetHolidayDatesAsync(req.Year);
+        var holidaySet = holidayDates.ToHashSet();
+
         var profileIdsActive = req.ProfileIds != null && req.ProfileIds.Count > 0;
         var employeeIdsActive = req.EmployeeIds != null && req.EmployeeIds.Count > 0;
 
@@ -301,7 +305,11 @@ public class ExcelReportService : IExcelReportService
 
             // Payroll summary rows
             decimal workDays = Enumerable.Range(1, daysInMonth)
-                .Count(d => new DateTime(req.Year, req.Month, d).DayOfWeek != DayOfWeek.Sunday);
+                .Count(d =>
+                {
+                    var date = new DateOnly(req.Year, req.Month, d);
+                    return date.DayOfWeek != DayOfWeek.Sunday && !holidaySet.Contains(date);
+                });
             decimal grossMonthlyRate = payroll.BasicSalary + profile.ShiftAllowance;
             decimal dailyRate = payroll.DailyRate > 0
                 ? payroll.DailyRate
@@ -402,6 +410,7 @@ public class ExcelReportService : IExcelReportService
     {
         await _publicHolidayService.EnsureYearAsync(req.Year);
         var holidayDates = await _publicHolidayService.GetHolidayDatesAsync(req.Year);
+        var holidaySet = holidayDates.ToHashSet();
 
         var profileIdsActive = req.ProfileIds != null && req.ProfileIds.Count > 0;
         var employeeIdsActive = req.EmployeeIds != null && req.EmployeeIds.Count > 0;
@@ -424,6 +433,10 @@ public class ExcelReportService : IExcelReportService
         {
             var emp = payroll.Employee;
             var profile = payroll.EmployeePayrollProfile;
+            var attendances = await _db.Attendances
+                .Where(a => a.EmployeeId == emp.Id && a.Date.Month == req.Month && a.Date.Year == req.Year)
+                .OrderBy(a => a.Date)
+                .ToListAsync();
 
             var periodLabel = new DateTime(req.Year, req.Month, 1).ToString("MMM yyyy");
             var payTo = string.IsNullOrWhiteSpace(emp.FinNo)
@@ -453,12 +466,21 @@ public class ExcelReportService : IExcelReportService
                 ? payroll.DailyRate
                 : (isDaily ? profile.DailyRate : (workingDays > 0 ? payroll.BasicSalary / workingDays : 0));
 
-            var attendanceOtHours = payroll.TotalOTHours - (profile.SundayPhOtDays * profile.StandardWorkHours) - profile.PublicHolidayOtHours;
-            if (attendanceOtHours < 0) attendanceOtHours = 0;
-
+            var attendanceOtHours = attendances
+                .Where(a => !holidaySet.Contains(a.Date))
+                .Sum(a => a.OTHours);
             var attendanceOtAmount = Math.Round(attendanceOtHours * otRate, 2, MidpointRounding.AwayFromZero);
-            var sundayPhAmount = Math.Round(profile.SundayPhOtDays * profile.StandardWorkHours * otRate, 2, MidpointRounding.AwayFromZero);
-            var publicHolidayAmount = Math.Round(profile.PublicHolidayOtHours * otRate, 2, MidpointRounding.AwayFromZero);
+            var sundayPhDays = attendances.Count(a =>
+                a.Status is "Present" or "HalfDay" &&
+                a.Date.DayOfWeek == DayOfWeek.Sunday &&
+                !holidaySet.Contains(a.Date));
+            var sundayPhHours = sundayPhDays * Math.Max(profile.StandardWorkHours, 1);
+            var sundayPhAmount = Math.Round(sundayPhHours * otRate, 2, MidpointRounding.AwayFromZero);
+            var publicHolidayHours = attendances
+                .Where(a => a.Status is "Present" or "HalfDay" && holidaySet.Contains(a.Date))
+                .Sum(a => a.WorkHours + a.OTHours);
+            var publicHolidayAmount = Math.Round(publicHolidayHours * otRate, 2, MidpointRounding.AwayFromZero);
+            var otAmount = attendanceOtAmount + sundayPhAmount + publicHolidayAmount;
             var noWorkDeduction = isDaily ? 0 : Math.Round(payroll.AbsentDays * dailyRate, 2, MidpointRounding.AwayFromZero);
             var adjustment = ParsePayrollAdjustmentNotes(payroll.Notes);
             var fixedDeduction = isDaily ? 0 : Math.Round(adjustment.FixedDeduction, 2, MidpointRounding.AwayFromZero);

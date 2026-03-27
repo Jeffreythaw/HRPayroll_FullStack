@@ -42,11 +42,7 @@ export interface Employee {
   dailyRate: number;
   shiftAllowance: number;
   otRatePerHour: number;
-  sundayPhOtDays: number;
-  publicHolidayOtHours: number;
   transportationFee: number;
-  deductionNoWork4Days: number;
-  advanceSalary: number;
   standardWorkHours: number;
   joinDate?: string | null;
   status: string;
@@ -65,8 +61,6 @@ export interface CreateEmployeeRequest {
   dailyRate: number;
   shiftAllowance: number;
   otRatePerHour: number;
-  sundayPhOtDays: number;
-  publicHolidayOtHours: number;
   transportationFee: number;
   standardWorkHours: number;
   joinDate?: string | null;
@@ -88,11 +82,7 @@ export interface EmployeePayrollProfile {
   dailyRate: number;
   shiftAllowance: number;
   otRatePerHour: number;
-  sundayPhOtDays: number;
-  publicHolidayOtHours: number;
   transportationFee: number;
-  deductionNoWork4Days: number;
-  advanceSalary: number;
   standardWorkHours: number;
   isPrimary: boolean;
   status: string;
@@ -106,8 +96,6 @@ export interface CreateEmployeePayrollProfileRequest {
   dailyRate: number;
   shiftAllowance: number;
   otRatePerHour: number;
-  sundayPhOtDays: number;
-  publicHolidayOtHours: number;
   transportationFee: number;
   standardWorkHours: number;
   isPrimary: boolean;

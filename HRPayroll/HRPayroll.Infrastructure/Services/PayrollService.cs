@@ -96,6 +96,7 @@ public class PayrollService : IPayrollService
     {
         await _publicHolidayService.EnsureYearAsync(req.Year);
         var holidayDates = await _publicHolidayService.GetHolidayDatesAsync(req.Year);
+        var holidaySet = holidayDates.ToHashSet();
         var adjustmentMap = (req.Adjustments ?? new List<PayrollProcessAdjustmentRequest>())
             .GroupBy(x => x.EmployeePayrollProfileId)
             .ToDictionary(g => g.Key, g => g.Last());
@@ -129,9 +130,17 @@ public class PayrollService : IPayrollService
             int absentDays = attendances.Count(a => a.Status == "Absent");
             int leaveDays = attendances.Count(a => a.Status == "Leave");
             decimal totalWorkHours = attendances.Sum(a => a.WorkHours);
-            decimal attendanceOTHours = attendances.Sum(a => a.OTHours);
-            decimal sundayPhHours = profile.SundayPhOtDays * profile.StandardWorkHours;
-            decimal publicHolidayHours = profile.PublicHolidayOtHours;
+            decimal attendanceOTHours = attendances
+                .Where(a => !holidaySet.Contains(a.Date))
+                .Sum(a => a.OTHours);
+            decimal sundayPhDays = attendances.Count(a =>
+                a.Status is "Present" or "HalfDay" &&
+                a.Date.DayOfWeek == DayOfWeek.Sunday &&
+                !holidaySet.Contains(a.Date));
+            decimal sundayPhHours = sundayPhDays * Math.Max(profile.StandardWorkHours, 1);
+            decimal publicHolidayHours = attendances
+                .Where(a => a.Status is "Present" or "HalfDay" && holidaySet.Contains(a.Date))
+                .Sum(a => a.WorkHours + a.OTHours);
             decimal totalOTHours = attendanceOTHours + sundayPhHours + publicHolidayHours;
 
             var salaryMode = string.IsNullOrWhiteSpace(profile.SalaryMode) ? "Monthly" : profile.SalaryMode;
