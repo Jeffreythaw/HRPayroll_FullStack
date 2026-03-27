@@ -262,6 +262,33 @@ public class AttendanceLookupsController : ControllerBase
     }
 }
 
+// ─── Public Holidays ────────────────────────────────────────────────────────
+[ApiController]
+[Route("api/public-holidays")]
+[Authorize]
+public class PublicHolidaysController : ControllerBase
+{
+    private readonly IPublicHolidayService _svc;
+    public PublicHolidaysController(IPublicHolidayService svc) => _svc = svc;
+
+    [HttpGet]
+    public async Task<IActionResult> GetByYear([FromQuery] int year) =>
+        Ok(await _svc.GetByYearAsync(year));
+
+    [HttpPost("sync")]
+    public async Task<IActionResult> Sync([FromQuery] int year)
+    {
+        try
+        {
+            return Ok(await _svc.SyncYearAsync(year));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+}
+
 // ─── Payroll ──────────────────────────────────────────────────────────────────
 [ApiController]
 [Route("api/[controller]")]

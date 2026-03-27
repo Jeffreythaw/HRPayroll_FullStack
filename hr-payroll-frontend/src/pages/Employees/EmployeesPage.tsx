@@ -497,12 +497,15 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
               <FormField label="Transportation Fee">
                 <input {...register('transportationFee', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
               </FormField>
-              <FormField label="Advance Salary">
+              <FormField label="Advance Salary Deduction">
                 <input {...register('advanceSalary', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
               </FormField>
               <FormField label="Deduction (No Work / 4 days)">
                 <input {...register('deductionNoWork4Days', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
               </FormField>
+              <p className="sm:col-span-2 text-xs text-slate-500 -mt-2">
+                Advance salary is treated as a net deduction in the payment voucher.
+              </p>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">OT Rate / Hour</p>
                 <p className="mt-2 text-lg font-semibold text-slate-900">{formatCurrency(autoOtRate)}</p>
@@ -747,7 +750,7 @@ function EmployeeProfilesModal({ open, onClose, employee }: { open: boolean; onC
                           {profile.salaryMode} · {formatCurrency(profile.basicSalary || profile.dailyRate)} · OT {formatCurrency(profile.otRatePerHour)}
                         </p>
                         <p className="text-xs text-slate-400 mt-1">
-                          Shift {formatCurrency(profile.shiftAllowance)} · Transport {formatCurrency(profile.transportationFee)} · Status {profile.status}
+                          Shift {formatCurrency(profile.shiftAllowance)} · Transport {formatCurrency(profile.transportationFee)} · Advance {formatCurrency(profile.advanceSalary)} · Status {profile.status}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -805,12 +808,15 @@ function EmployeeProfilesModal({ open, onClose, employee }: { open: boolean; onC
               <FormField label="Transportation Fee">
                 <input {...register('transportationFee', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
               </FormField>
-              <FormField label="Advance Salary">
+              <FormField label="Advance Salary Deduction">
                 <input {...register('advanceSalary', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
               </FormField>
               <FormField label="Deduction (No Work / 4 days)">
                 <input {...register('deductionNoWork4Days', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
               </FormField>
+              <p className="sm:col-span-2 text-xs text-slate-500 -mt-2">
+                Advance salary is deducted from the final net salary.
+              </p>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">OT Rate / Hour</p>
                 <p className="mt-2 text-lg font-semibold text-slate-900">{formatCurrency(autoOtRate)}</p>

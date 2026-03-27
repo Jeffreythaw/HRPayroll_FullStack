@@ -6,6 +6,7 @@ import type {
   EmployeePayrollProfile, CreateEmployeePayrollProfileRequest, UpdateEmployeePayrollProfileRequest,
   Attendance, CreateAttendanceRequest, UpdateAttendanceRequest, AttendanceSummary,
   AttendanceLookup, CreateAttendanceLookupRequest, UpdateAttendanceLookupRequest,
+  PublicHoliday,
   PayrollRecord, ProcessPayrollRequest, UpdatePayrollStatusRequest,
   DashboardSummary, ExcelReportRequest,
 } from '../types';
@@ -140,6 +141,14 @@ export const attendanceLookupApi = {
   create: (data: CreateAttendanceLookupRequest) => api.post<AttendanceLookup>('/attendance-lookups', data).then(r => r.data),
   update: (id: number, data: UpdateAttendanceLookupRequest) => api.put<AttendanceLookup>(`/attendance-lookups/${id}`, data).then(r => r.data),
   delete: (id: number) => api.delete(`/attendance-lookups/${id}`),
+};
+
+// ─── Public Holidays ────────────────────────────────────────
+export const publicHolidayApi = {
+  getByYear: (year: number) =>
+    api.get<PublicHoliday[]>('/public-holidays', { params: { year } }).then(r => r.data),
+  sync: (year: number) =>
+    api.post<PublicHoliday[]>('/public-holidays/sync', null, { params: { year } }).then(r => r.data),
 };
 
 // ─── Payroll ──────────────────────────────────────────────────

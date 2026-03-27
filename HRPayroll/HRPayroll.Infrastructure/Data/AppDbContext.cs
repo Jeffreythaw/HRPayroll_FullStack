@@ -13,6 +13,7 @@ public class AppDbContext : DbContext
     public DbSet<EmployeePayrollProfile> EmployeePayrollProfiles => Set<EmployeePayrollProfile>();
     public DbSet<Attendance> Attendances => Set<Attendance>();
     public DbSet<AttendanceLookup> AttendanceLookups => Set<AttendanceLookup>();
+    public DbSet<PublicHoliday> PublicHolidays => Set<PublicHoliday>();
     public DbSet<PayrollRecord> PayrollRecords => Set<PayrollRecord>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -103,6 +104,15 @@ public class AppDbContext : DbContext
             e.Property(x => x.Name).HasMaxLength(100).IsRequired();
             e.Property(x => x.IsActive).HasDefaultValue(true);
             e.Property(x => x.SortOrder).HasDefaultValue(0);
+        });
+
+        modelBuilder.Entity<PublicHoliday>(e =>
+        {
+            e.ToTable("SLE_PublicHolidays");
+            e.HasIndex(x => x.Date).IsUnique();
+            e.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            e.Property(x => x.CountryCode).HasMaxLength(5).HasDefaultValue("SG");
+            e.Property(x => x.Source).HasMaxLength(100).HasDefaultValue("data.gov.sg");
         });
 
         // PayrollRecord

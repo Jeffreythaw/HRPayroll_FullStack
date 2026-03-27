@@ -190,6 +190,17 @@ public class CreateAttendanceLookupRequest
 
 public class UpdateAttendanceLookupRequest : CreateAttendanceLookupRequest { }
 
+// ─── Public Holidays ─────────────────────────────────────────
+public class PublicHolidayDto
+{
+    public int Id { get; set; }
+    public DateOnly Date { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public int Year { get; set; }
+    public string CountryCode { get; set; } = "SG";
+    public string Source { get; set; } = string.Empty;
+}
+
 public class AttendanceSummaryDto
 {
     public int EmployeeId { get; set; }

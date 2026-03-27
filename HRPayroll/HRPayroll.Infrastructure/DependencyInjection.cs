@@ -20,6 +20,7 @@ public static class DependencyInjection
             throw new InvalidOperationException("Missing connection string. Expected ConnectionStrings:LS or ConnectionStrings:DefaultConnection.");
         }
 
+        services.AddHttpClient();
         services.AddDbContext<AppDbContext>(options =>
         {
             if (useLocalDb)
@@ -38,6 +39,7 @@ public static class DependencyInjection
         services.AddScoped<IEmployeeService, EmployeeService>();
         services.AddScoped<IAttendanceService, AttendanceService>();
         services.AddScoped<IAttendanceLookupService, AttendanceLookupService>();
+        services.AddScoped<IPublicHolidayService, PublicHolidayService>();
         services.AddScoped<IPayrollService, PayrollService>();
         services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<IExcelReportService, ExcelReportService>();

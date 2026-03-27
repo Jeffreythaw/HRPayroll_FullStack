@@ -1,14 +1,14 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
-import { attendanceApi, attendanceLookupApi, employeeApi } from '../../api';
+import { attendanceApi, attendanceLookupApi, employeeApi, publicHolidayApi } from '../../api';
 import {
   Modal, ConfirmModal, PageHeader, EmptyState, Spinner,
   MonthYearPicker, FormField
 } from '../../components/ui';
-import { formatTime, statusBadgeClass, attendanceStatuses, currentMonthYear } from '../../utils';
+import { formatTime, formatDate, statusBadgeClass, attendanceStatuses, currentMonthYear } from '../../utils';
 import type {
-  Attendance, AttendanceLookup, CreateAttendanceRequest, UpdateAttendanceRequest, Employee
+  Attendance, AttendanceLookup, CreateAttendanceRequest, UpdateAttendanceRequest, Employee, PublicHoliday
 } from '../../types';
 
 export default function AttendancePage() {
@@ -18,7 +18,10 @@ export default function AttendancePage() {
   const [records, setRecords] = useState<Attendance[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [lookups, setLookups] = useState<AttendanceLookup[]>([]);
+  const [publicHolidays, setPublicHolidays] = useState<PublicHoliday[]>([]);
   const [loading, setLoading] = useState(true);
+  const [holidayLoading, setHolidayLoading] = useState(false);
+  const [holidaySyncing, setHolidaySyncing] = useState(false);
   const [filterEmp, setFilterEmp] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
 
@@ -32,12 +35,14 @@ export default function AttendancePage() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setHolidayLoading(true);
     try {
       const [recs, emps, lookupItems] = await Promise.all([
         attendanceApi.getByMonth(selMonth, selYear),
         employeeApi.getAll({ status: 'Active' }),
         attendanceLookupApi.getAll(),
       ]);
+      const holidayItems = await publicHolidayApi.getByYear(selYear).catch(() => []);
 
       if (
         !autoFallbackUsedRef.current &&
@@ -60,8 +65,10 @@ export default function AttendancePage() {
       setRecords(recs);
       setEmployees(emps);
       setLookups(lookupItems);
+      setPublicHolidays(holidayItems);
     } finally {
       setLoading(false);
+      setHolidayLoading(false);
     }
   }, [selMonth, selYear]);
 
@@ -105,6 +112,24 @@ export default function AttendancePage() {
     .filter(x => x.category === 'Transport' && x.isActive)
     .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
 
+  const holidayMonthPrefix = `${selYear}-${String(selMonth).padStart(2, '0')}`;
+  const holidayMonthItems = publicHolidays
+    .filter(h => h.date.startsWith(holidayMonthPrefix))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const syncHolidays = async () => {
+    setHolidaySyncing(true);
+    try {
+      const synced = await publicHolidayApi.sync(selYear);
+      setPublicHolidays(synced);
+      toast.success(`Singapore public holidays synced for ${selYear}`);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to sync public holidays');
+    } finally {
+      setHolidaySyncing(false);
+    }
+  };
+
   return (
     <div>
       <PageHeader
@@ -139,6 +164,38 @@ export default function AttendancePage() {
           <span><span className="font-semibold text-red-500">{totalAbsent}</span> Absent</span>
           <span><span className="font-semibold text-slate-700">{totalWorkHours.toFixed(1)}h</span> Working</span>
           <span><span className="font-semibold text-indigo-600">{totalOTHours.toFixed(1)}h</span> OT</span>
+        </div>
+      </div>
+
+      <div className="card mb-4 p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-400">Singapore Public Holidays</p>
+            <h2 className="mt-1 text-sm font-semibold text-slate-900">
+              Official {selYear} holidays are synced from MOM / data.gov.sg
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Payroll uses this list automatically, so holidays do not need to be keyed in every year.
+            </p>
+          </div>
+          <button className="btn-secondary" onClick={syncHolidays} disabled={holidaySyncing}>
+            {holidaySyncing ? <><Spinner size="sm" /> Syncing…</> : 'Sync Holidays'}
+          </button>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {holidayLoading ? (
+            <span className="text-sm text-slate-400">Loading holidays…</span>
+          ) : holidayMonthItems.length > 0 ? (
+            holidayMonthItems.map(h => (
+              <span key={h.id} className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700">
+                <span className="font-semibold">{formatDate(h.date)}</span>
+                <span className="text-slate-400">·</span>
+                <span>{h.name}</span>
+              </span>
+            ))
+          ) : (
+            <span className="text-sm text-slate-400">No public holidays in this month.</span>
+          )}
         </div>
       </div>
 

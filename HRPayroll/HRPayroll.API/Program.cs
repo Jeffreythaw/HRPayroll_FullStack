@@ -128,6 +128,7 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<HRPayroll.Infrastructure.Data.AppDbContext>();
+    var publicHolidayService = scope.ServiceProvider.GetRequiredService<HRPayroll.Core.Interfaces.IPublicHolidayService>();
     if (builder.Configuration.GetValue<bool>("UseLocalDb"))
     {
         db.Database.EnsureCreated();
@@ -141,9 +142,40 @@ using (var scope = app.Services.CreateScope())
         SeedData.SeedAttendanceLookups(db);
         SeedData.SeedPayrollProfiles(db);
     }
+
+    var currentYear = GetSingaporeNow().Year;
+    try
+    {
+        await publicHolidayService.EnsureYearAsync(currentYear);
+    }
+    catch
+    {
+        app.Logger.LogWarning("Singapore public holidays could not be synced at startup. Payroll will still sync on demand.");
+    }
 }
 
 app.Run();
+
+static DateTime GetSingaporeNow()
+{
+    try
+    {
+        var tz = TimeZoneInfo.FindSystemTimeZoneById("Singapore Standard Time");
+        return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+    }
+    catch
+    {
+        try
+        {
+            var tz = TimeZoneInfo.FindSystemTimeZoneById("Asia/Singapore");
+            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+        }
+        catch
+        {
+            return DateTime.UtcNow.AddHours(8);
+        }
+    }
+}
 
 static void SeedLocalData(HRPayroll.Infrastructure.Data.AppDbContext db)
 {

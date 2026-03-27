@@ -174,6 +174,16 @@ export interface CreateAttendanceLookupRequest {
 
 export interface UpdateAttendanceLookupRequest extends CreateAttendanceLookupRequest {}
 
+// ─── Public Holidays ─────────────────────────────────────────
+export interface PublicHoliday {
+  id: number;
+  date: string;
+  name: string;
+  year: number;
+  countryCode: string;
+  source: string;
+}
+
 export interface AttendanceSummary {
   employeeId: number;
   employeeName: string;

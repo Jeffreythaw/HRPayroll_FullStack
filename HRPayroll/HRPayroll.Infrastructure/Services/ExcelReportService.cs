@@ -14,11 +14,13 @@ public class ExcelReportService : IExcelReportService
 {
     private readonly AppDbContext _db;
     private readonly IConfiguration _configuration;
+    private readonly IPublicHolidayService _publicHolidayService;
 
-    public ExcelReportService(AppDbContext db, IConfiguration configuration)
+    public ExcelReportService(AppDbContext db, IConfiguration configuration, IPublicHolidayService publicHolidayService)
     {
         _db = db;
         _configuration = configuration;
+        _publicHolidayService = publicHolidayService;
     }
 
     public async Task<byte[]> GenerateMonthlyReportAsync(ExcelReportRequest req)
@@ -397,6 +399,9 @@ public class ExcelReportService : IExcelReportService
 
     public async Task<byte[]> GeneratePaymentVoucherPdfAsync(ExcelReportRequest req)
     {
+        await _publicHolidayService.EnsureYearAsync(req.Year);
+        var holidayDates = await _publicHolidayService.GetHolidayDatesAsync(req.Year);
+
         var profileIdsActive = req.ProfileIds != null && req.ProfileIds.Count > 0;
         var employeeIdsActive = req.EmployeeIds != null && req.EmployeeIds.Count > 0;
 
@@ -428,7 +433,11 @@ public class ExcelReportService : IExcelReportService
             var workingDays = payroll.WorkingDays > 0
                 ? payroll.WorkingDays
                 : Enumerable.Range(1, DateTime.DaysInMonth(req.Year, req.Month))
-                    .Count(d => new DateTime(req.Year, req.Month, d).DayOfWeek != DayOfWeek.Sunday);
+                    .Count(d =>
+                    {
+                        var date = new DateOnly(req.Year, req.Month, d);
+                        return date.DayOfWeek != DayOfWeek.Sunday && !holidayDates.Contains(date);
+                    });
 
             var salaryMode = string.IsNullOrWhiteSpace(profile.SalaryMode) ? "Monthly" : profile.SalaryMode;
             var otRate = payroll.TotalOTHours > 0
@@ -464,7 +473,7 @@ public class ExcelReportService : IExcelReportService
                     ? $"Deduction (No Work / {payroll.AbsentDays} days)"
                     : "Deduction (No Work)", -noWorkDeduction, true),
                 new("Deduction (No Work / 4 days)", -fixedDeduction, true),
-                new("Advance Salary", -advanceSalary, true)
+                new("Advance Salary Deduction", -advanceSalary, true)
             };
 
             var totalAmount = lines.Sum(x => x.Amount);

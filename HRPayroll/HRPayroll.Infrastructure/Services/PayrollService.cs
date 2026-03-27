@@ -9,7 +9,12 @@ namespace HRPayroll.Infrastructure.Services;
 public class PayrollService : IPayrollService
 {
     private readonly AppDbContext _db;
-    public PayrollService(AppDbContext db) => _db = db;
+    private readonly IPublicHolidayService _publicHolidayService;
+    public PayrollService(AppDbContext db, IPublicHolidayService publicHolidayService)
+    {
+        _db = db;
+        _publicHolidayService = publicHolidayService;
+    }
 
     private static PayrollRecordDto ToDto(PayrollRecord p) => new()
     {
@@ -89,6 +94,9 @@ public class PayrollService : IPayrollService
 
     public async Task<List<PayrollRecordDto>> ProcessPayrollAsync(ProcessPayrollRequest req)
     {
+        await _publicHolidayService.EnsureYearAsync(req.Year);
+        var holidayDates = await _publicHolidayService.GetHolidayDatesAsync(req.Year);
+
         var profiles = await _db.EmployeePayrollProfiles
             .Include(p => p.Employee).ThenInclude(e => e.Department)
             .Where(p => p.Status == "Active" && p.Employee.Status == "Active" &&
@@ -99,7 +107,11 @@ public class PayrollService : IPayrollService
 
         var daysInMonth = DateTime.DaysInMonth(req.Year, req.Month);
         int workingDays = Enumerable.Range(1, daysInMonth)
-            .Count(d => new DateTime(req.Year, req.Month, d).DayOfWeek != DayOfWeek.Sunday);
+            .Count(d =>
+            {
+                var date = new DateOnly(req.Year, req.Month, d);
+                return date.DayOfWeek != DayOfWeek.Sunday && !holidayDates.Contains(date);
+            });
 
         var results = new List<PayrollRecordDto>();
 

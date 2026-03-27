@@ -9,7 +9,12 @@ namespace HRPayroll.Infrastructure.Services;
 public class AttendanceService : IAttendanceService
 {
     private readonly AppDbContext _db;
-    public AttendanceService(AppDbContext db) => _db = db;
+    private readonly IPublicHolidayService _publicHolidayService;
+    public AttendanceService(AppDbContext db, IPublicHolidayService publicHolidayService)
+    {
+        _db = db;
+        _publicHolidayService = publicHolidayService;
+    }
 
     private static AttendanceDto ToDto(Attendance a) => new()
     {
@@ -116,6 +121,8 @@ public class AttendanceService : IAttendanceService
     {
         var emp = await _db.Employees.FindAsync(employeeId);
         if (emp == null) return null;
+        await _publicHolidayService.EnsureYearAsync(year);
+        var holidayDates = await _publicHolidayService.GetHolidayDatesAsync(year);
 
         var attendances = await _db.Attendances
             .Where(a => a.EmployeeId == employeeId && a.Date.Month == month && a.Date.Year == year)
@@ -124,7 +131,11 @@ public class AttendanceService : IAttendanceService
         // Calculate working days in month (Mon–Sat, excluding Sunday)
         var daysInMonth = DateTime.DaysInMonth(year, month);
         int workingDays = Enumerable.Range(1, daysInMonth)
-            .Count(d => new DateTime(year, month, d).DayOfWeek != DayOfWeek.Sunday);
+            .Count(d =>
+            {
+                var date = new DateOnly(year, month, d);
+                return date.DayOfWeek != DayOfWeek.Sunday && !holidayDates.Contains(date);
+            });
 
         return new AttendanceSummaryDto
         {

@@ -51,6 +51,15 @@ public interface IAttendanceLookupService
     Task<bool> DeleteAsync(int id);
 }
 
+public interface IPublicHolidayService
+{
+    Task<List<PublicHolidayDto>> GetByYearAsync(int year);
+    Task<List<PublicHolidayDto>> SyncYearAsync(int year);
+    Task EnsureYearAsync(int year);
+    Task<HashSet<DateOnly>> GetHolidayDatesAsync(int year);
+    Task<bool> IsHolidayAsync(DateOnly date);
+}
+
 public interface IPayrollService
 {
     Task<List<PayrollRecordDto>> GetByMonthAsync(int month, int year);
