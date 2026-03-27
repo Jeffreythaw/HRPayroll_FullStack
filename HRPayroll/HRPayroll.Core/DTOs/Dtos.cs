@@ -253,6 +253,14 @@ public class ProcessPayrollRequest
     public int Month { get; set; }
     public int Year { get; set; }
     public List<int>? EmployeeIds { get; set; } // null = all active employees
+    public List<PayrollProcessAdjustmentRequest> Adjustments { get; set; } = new();
+}
+
+public class PayrollProcessAdjustmentRequest
+{
+    public int EmployeePayrollProfileId { get; set; }
+    public decimal AdvanceSalary { get; set; }
+    public decimal DeductionNoWork4Days { get; set; }
 }
 
 public class UpdatePayrollStatusRequest

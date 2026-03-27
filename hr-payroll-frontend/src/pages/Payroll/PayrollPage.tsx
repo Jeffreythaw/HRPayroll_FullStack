@@ -1,13 +1,13 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
-import { payrollApi, employeeApi } from '../../api';
+import { payrollApi, employeeApi, employeeProfileApi } from '../../api';
 import {
   Modal, ConfirmModal, PageHeader, EmptyState, Spinner,
   MonthYearPicker, StatCard, FormField
 } from '../../components/ui';
 import { formatCurrency, statusBadgeClass, payrollStatuses, currentMonthYear } from '../../utils';
-import type { PayrollRecord, Employee, ProcessPayrollRequest, UpdatePayrollStatusRequest } from '../../types';
+import type { PayrollRecord, Employee, EmployeePayrollProfile, ProcessPayrollRequest, UpdatePayrollStatusRequest } from '../../types';
 
 export default function PayrollPage() {
   const { month, year } = currentMonthYear();
@@ -239,11 +239,39 @@ function ProcessPayrollModal({ open, onClose, employees, month, year, onProcesse
 }) {
   const [processing, setProcessing] = useState(false);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [profiles, setProfiles] = useState<EmployeePayrollProfile[]>([]);
+  const [adjustments, setAdjustments] = useState<Record<number, { advanceSalary: number; deductionNoWork4Days: number }>>({});
   const allSelected = selectedIds.length === 0;
 
   const toggle = (id: number) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
+
+  useEffect(() => {
+    if (!open) return;
+    setSelectedIds([]);
+    let mounted = true;
+    employeeProfileApi.getAll({ status: 'Active' })
+      .then(data => { if (mounted) setProfiles(data); })
+      .catch(() => { if (mounted) setProfiles([]); });
+    return () => { mounted = false; };
+  }, [open]);
+
+  const targetProfiles = profiles.filter(profile => {
+    if (allSelected) return true;
+    return selectedIds.includes(profile.employeeId);
+  });
+
+  useEffect(() => {
+    if (!open) return;
+    setAdjustments(prev => {
+      const next: Record<number, { advanceSalary: number; deductionNoWork4Days: number }> = {};
+      for (const profile of targetProfiles) {
+        next[profile.id] = prev[profile.id] ?? { advanceSalary: 0, deductionNoWork4Days: 0 };
+      }
+      return next;
+    });
+  }, [open, profiles, selectedIds, allSelected]);
 
   const handleProcess = async () => {
     setProcessing(true);
@@ -251,6 +279,11 @@ function ProcessPayrollModal({ open, onClose, employees, month, year, onProcesse
       const req: ProcessPayrollRequest = {
         month, year,
         employeeIds: selectedIds.length > 0 ? selectedIds : undefined,
+        adjustments: Object.entries(adjustments).map(([profileId, value]) => ({
+          employeePayrollProfileId: Number(profileId),
+          advanceSalary: Number(value.advanceSalary) || 0,
+          deductionNoWork4Days: Number(value.deductionNoWork4Days) || 0,
+        })),
       };
       const results = await payrollApi.process(req);
       toast.success(`Processed payroll for ${results.length} employee(s)`);
@@ -304,6 +337,82 @@ function ProcessPayrollModal({ open, onClose, employees, month, year, onProcesse
           {allSelected && (
             <p className="text-xs text-slate-500 mt-1">All {employees.length} active employees will be processed</p>
           )}
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">Monthly adjustments</p>
+              <p className="text-sm text-slate-600">
+                Enter only for the current payroll month. Leave blank or zero if not needed.
+              </p>
+            </div>
+            <p className="text-xs text-slate-500">{targetProfiles.length} profile(s) selected</p>
+          </div>
+
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[720px]">
+              <thead>
+                <tr>
+                  <th className="table-th">Employee</th>
+                  <th className="table-th">Profile</th>
+                  <th className="table-th">Advance Salary</th>
+                  <th className="table-th">No Work Deduction</th>
+                </tr>
+              </thead>
+              <tbody>
+                {targetProfiles.map(profile => (
+                  <tr key={profile.id} className="border-t border-slate-200">
+                    <td className="table-td">
+                      <p className="font-semibold text-slate-900">{profile.employeeName}</p>
+                      <p className="text-xs text-slate-400 font-mono">{profile.employeeCode}</p>
+                    </td>
+                    <td className="table-td">
+                      <p className="text-sm text-slate-700">{profile.profileName}</p>
+                      <p className="text-xs text-slate-400">{profile.salaryMode}</p>
+                    </td>
+                    <td className="table-td">
+                      <input
+                        type="number"
+                        step="0.01"
+                        className="input"
+                        value={adjustments[profile.id]?.advanceSalary ?? 0}
+                        onChange={e => setAdjustments(prev => ({
+                          ...prev,
+                          [profile.id]: {
+                            advanceSalary: Number(e.target.value) || 0,
+                            deductionNoWork4Days: prev[profile.id]?.deductionNoWork4Days ?? 0,
+                          }
+                        }))}
+                        placeholder="0.00"
+                      />
+                    </td>
+                    <td className="table-td">
+                      <input
+                        type="number"
+                        step="0.01"
+                        className="input"
+                        value={adjustments[profile.id]?.deductionNoWork4Days ?? 0}
+                        onChange={e => setAdjustments(prev => ({
+                          ...prev,
+                          [profile.id]: {
+                            advanceSalary: prev[profile.id]?.advanceSalary ?? 0,
+                            deductionNoWork4Days: Number(e.target.value) || 0,
+                          }
+                        }))}
+                        placeholder="0.00"
+                      />
+                    </td>
+                  </tr>
+                ))}
+                {targetProfiles.length === 0 && (
+                  <tr>
+                    <td className="table-td text-slate-400" colSpan={4}>Select employees to load payroll profiles.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </Modal>

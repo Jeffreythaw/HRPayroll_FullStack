@@ -21,8 +21,6 @@ type EmployeeFormValues = {
   sundayPhOtDays: number;
   publicHolidayOtHours: number;
   transportationFee: number;
-  deductionNoWork4Days: number;
-  advanceSalary: number;
   status: string;
 };
 
@@ -299,8 +297,6 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
       sundayPhOtDays: 0,
       publicHolidayOtHours: 0,
       transportationFee: 0,
-      deductionNoWork4Days: 0,
-      advanceSalary: 0,
       departmentId: 0,
       status: 'Active',
     }
@@ -326,8 +322,6 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
         sundayPhOtDays: employee.sundayPhOtDays,
         publicHolidayOtHours: employee.publicHolidayOtHours,
         transportationFee: employee.transportationFee,
-        deductionNoWork4Days: employee.deductionNoWork4Days,
-        advanceSalary: employee.advanceSalary,
         joinDate: employee.joinDate || '',
         status: employee.status,
       });
@@ -344,8 +338,6 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
         sundayPhOtDays: 0,
         publicHolidayOtHours: 0,
         transportationFee: 0,
-        deductionNoWork4Days: 0,
-        advanceSalary: 0,
         status: 'Active',
         joinDate: '',
       });
@@ -387,8 +379,6 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
         sundayPhOtDays: data.sundayPhOtDays,
         publicHolidayOtHours: data.publicHolidayOtHours,
         transportationFee: data.transportationFee,
-        deductionNoWork4Days: data.deductionNoWork4Days,
-        advanceSalary: data.advanceSalary,
         standardWorkHours: 8,
         joinDate: data.joinDate || null,
       };
@@ -497,15 +487,6 @@ function EmployeeFormModal({ open, onClose, employee, departments, onSaved }: Em
               <FormField label="Transportation Fee">
                 <input {...register('transportationFee', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
               </FormField>
-              <FormField label="Advance Salary Deduction">
-                <input {...register('advanceSalary', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
-              </FormField>
-              <FormField label="Deduction (No Work / 4 days)">
-                <input {...register('deductionNoWork4Days', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
-              </FormField>
-              <p className="sm:col-span-2 text-xs text-slate-500 -mt-2">
-                Advance salary is treated as a net deduction in the payment voucher. The no-work deduction is applied only for monthly staff.
-              </p>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">OT Rate / Hour</p>
                 <p className="mt-2 text-lg font-semibold text-slate-900">{formatCurrency(autoOtRate)}</p>
@@ -558,8 +539,6 @@ type ProfileFormValues = {
   sundayPhOtDays: number;
   publicHolidayOtHours: number;
   transportationFee: number;
-  deductionNoWork4Days: number;
-  advanceSalary: number;
   standardWorkHours: number;
   status: string;
 };
@@ -581,8 +560,6 @@ function EmployeeProfilesModal({ open, onClose, employee }: { open: boolean; onC
       sundayPhOtDays: 0,
       publicHolidayOtHours: 0,
       transportationFee: 0,
-      deductionNoWork4Days: 0,
-      advanceSalary: 0,
       standardWorkHours: 8,
       status: 'Active',
     }
@@ -620,8 +597,6 @@ function EmployeeProfilesModal({ open, onClose, employee }: { open: boolean; onC
         sundayPhOtDays: 0,
         publicHolidayOtHours: 0,
         transportationFee: 0,
-        deductionNoWork4Days: 0,
-        advanceSalary: 0,
         standardWorkHours: 8,
         status: 'Active',
       });
@@ -640,8 +615,6 @@ function EmployeeProfilesModal({ open, onClose, employee }: { open: boolean; onC
       sundayPhOtDays: profile.sundayPhOtDays,
       publicHolidayOtHours: profile.publicHolidayOtHours,
       transportationFee: profile.transportationFee,
-      deductionNoWork4Days: profile.deductionNoWork4Days,
-      advanceSalary: profile.advanceSalary,
       standardWorkHours: profile.standardWorkHours,
       status: profile.status,
     });
@@ -659,8 +632,6 @@ function EmployeeProfilesModal({ open, onClose, employee }: { open: boolean; onC
       sundayPhOtDays: 0,
       publicHolidayOtHours: 0,
       transportationFee: 0,
-      deductionNoWork4Days: 0,
-      advanceSalary: 0,
       standardWorkHours: 8,
       status: 'Active',
     });
@@ -681,8 +652,6 @@ function EmployeeProfilesModal({ open, onClose, employee }: { open: boolean; onC
         sundayPhOtDays: data.sundayPhOtDays,
         publicHolidayOtHours: data.publicHolidayOtHours,
         transportationFee: data.transportationFee,
-        deductionNoWork4Days: data.deductionNoWork4Days,
-        advanceSalary: data.advanceSalary,
         standardWorkHours: data.standardWorkHours,
         isPrimary: false,
         status: data.status,
@@ -750,7 +719,7 @@ function EmployeeProfilesModal({ open, onClose, employee }: { open: boolean; onC
                           {profile.salaryMode} · {formatCurrency(profile.basicSalary || profile.dailyRate)} · OT {formatCurrency(profile.otRatePerHour)}
                         </p>
                         <p className="text-xs text-slate-400 mt-1">
-                          Shift {formatCurrency(profile.shiftAllowance)} · Transport {formatCurrency(profile.transportationFee)} · Advance {formatCurrency(profile.advanceSalary)} · Status {profile.status}
+                          Shift {formatCurrency(profile.shiftAllowance)} · Transport {formatCurrency(profile.transportationFee)} · Status {profile.status}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -808,15 +777,6 @@ function EmployeeProfilesModal({ open, onClose, employee }: { open: boolean; onC
               <FormField label="Transportation Fee">
                 <input {...register('transportationFee', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
               </FormField>
-              <FormField label="Advance Salary Deduction">
-                <input {...register('advanceSalary', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
-              </FormField>
-              <FormField label="Deduction (No Work / 4 days)">
-                <input {...register('deductionNoWork4Days', { valueAsNumber: true })} type="number" step="0.01" className="input" placeholder="0.00" />
-              </FormField>
-              <p className="sm:col-span-2 text-xs text-slate-500 -mt-2">
-                Advance salary is deducted from the final net salary. The no-work deduction is applied only for monthly staff.
-              </p>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">OT Rate / Hour</p>
                 <p className="mt-2 text-lg font-semibold text-slate-900">{formatCurrency(autoOtRate)}</p>

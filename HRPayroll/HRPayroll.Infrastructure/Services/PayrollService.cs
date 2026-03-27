@@ -96,6 +96,9 @@ public class PayrollService : IPayrollService
     {
         await _publicHolidayService.EnsureYearAsync(req.Year);
         var holidayDates = await _publicHolidayService.GetHolidayDatesAsync(req.Year);
+        var adjustmentMap = (req.Adjustments ?? new List<PayrollProcessAdjustmentRequest>())
+            .GroupBy(x => x.EmployeePayrollProfileId)
+            .ToDictionary(g => g.Key, g => g.Last());
 
         var profiles = await _db.EmployeePayrollProfiles
             .Include(p => p.Employee).ThenInclude(e => e.Department)
@@ -143,12 +146,14 @@ public class PayrollService : IPayrollService
                 ? (profile.DailyRate > 0 ? profile.DailyRate : 0) / Math.Max(profile.StandardWorkHours, 1)
                 : (profile.BasicSalary * 12m) / (52m * 44m);
 
+            adjustmentMap.TryGetValue(profile.Id, out var adjustment);
             decimal baseSalary = isDaily
                 ? dailyRate * presentDays
                 : profile.BasicSalary;
             decimal baseDeductions = isDaily ? 0 : absentDays * dailyRate;
-            decimal fixedDeduction = isDaily ? 0 : profile.DeductionNoWork4Days;
-            decimal deductions = baseDeductions + fixedDeduction + profile.AdvanceSalary;
+            decimal fixedDeduction = isDaily ? 0 : Math.Max(adjustment?.DeductionNoWork4Days ?? 0, 0);
+            decimal advanceSalary = Math.Max(adjustment?.AdvanceSalary ?? 0, 0);
+            decimal deductions = baseDeductions + fixedDeduction + advanceSalary;
             decimal otRate = profile.OTRatePerHour > 0
                 ? profile.OTRatePerHour
                 : Math.Round(hourlyBasicRate * 1.5m, 2);
@@ -174,6 +179,7 @@ public class PayrollService : IPayrollService
                 existing.Deductions = deductions;
                 existing.GrossSalary = grossSalary;
                 existing.NetSalary = netSalary;
+                existing.Notes = BuildAdjustmentNotes(fixedDeduction, advanceSalary);
                 existing.UpdatedAt = DateTime.UtcNow;
                 existing.Employee = emp;
                 existing.EmployeePayrollProfile = profile;
@@ -199,6 +205,7 @@ public class PayrollService : IPayrollService
                     Deductions = deductions,
                     GrossSalary = grossSalary,
                     NetSalary = netSalary,
+                    Notes = BuildAdjustmentNotes(fixedDeduction, advanceSalary),
                     Employee = emp,
                     EmployeePayrollProfile = profile
                 };
@@ -211,6 +218,20 @@ public class PayrollService : IPayrollService
         return results;
     }
 
+    private static string BuildAdjustmentNotes(decimal fixedDeduction, decimal advanceSalary)
+        => $"adj:fixedDeduction={fixedDeduction:0.00};advanceSalary={advanceSalary:0.00}";
+
+    private static string ExtractAdjustmentPrefix(string? notes)
+    {
+        if (string.IsNullOrWhiteSpace(notes) || !notes.StartsWith("adj:", StringComparison.OrdinalIgnoreCase))
+        {
+            return string.Empty;
+        }
+
+        var newlineIndex = notes.IndexOf('\n');
+        return newlineIndex >= 0 ? notes[..newlineIndex] : notes;
+    }
+
     public async Task<PayrollRecordDto?> UpdateStatusAsync(int id, UpdatePayrollStatusRequest req)
     {
         var p = await _db.PayrollRecords
@@ -218,8 +239,13 @@ public class PayrollService : IPayrollService
             .Include(p => p.EmployeePayrollProfile)
             .FirstOrDefaultAsync(p => p.Id == id);
         if (p == null) return null;
+        var adjustmentPrefix = ExtractAdjustmentPrefix(p.Notes);
         p.Status = req.Status;
-        p.Notes = req.Notes;
+        p.Notes = string.IsNullOrWhiteSpace(req.Notes)
+            ? adjustmentPrefix
+            : string.IsNullOrWhiteSpace(adjustmentPrefix)
+                ? req.Notes
+                : $"{adjustmentPrefix}\n{req.Notes}";
         p.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return ToDto(p);

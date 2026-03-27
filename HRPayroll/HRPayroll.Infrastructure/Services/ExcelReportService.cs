@@ -1,3 +1,4 @@
+using System.Globalization;
 using ClosedXML.Excel;
 using HRPayroll.Core.DTOs;
 using HRPayroll.Core.Interfaces;
@@ -459,8 +460,9 @@ public class ExcelReportService : IExcelReportService
             var sundayPhAmount = Math.Round(profile.SundayPhOtDays * profile.StandardWorkHours * otRate, 2, MidpointRounding.AwayFromZero);
             var publicHolidayAmount = Math.Round(profile.PublicHolidayOtHours * otRate, 2, MidpointRounding.AwayFromZero);
             var noWorkDeduction = isDaily ? 0 : Math.Round(payroll.AbsentDays * dailyRate, 2, MidpointRounding.AwayFromZero);
-            var fixedDeduction = isDaily ? 0 : Math.Round(profile.DeductionNoWork4Days, 2, MidpointRounding.AwayFromZero);
-            var advanceSalary = Math.Round(profile.AdvanceSalary, 2, MidpointRounding.AwayFromZero);
+            var adjustment = ParsePayrollAdjustmentNotes(payroll.Notes);
+            var fixedDeduction = isDaily ? 0 : Math.Round(adjustment.FixedDeduction, 2, MidpointRounding.AwayFromZero);
+            var advanceSalary = Math.Round(adjustment.AdvanceSalary, 2, MidpointRounding.AwayFromZero);
 
             var lines = new List<VoucherLineItem>
             {
@@ -480,10 +482,17 @@ public class ExcelReportService : IExcelReportService
                         : "Deduction (No Work)",
                     -noWorkDeduction,
                     true));
+            }
+
+            if (fixedDeduction > 0)
+            {
                 lines.Add(new VoucherLineItem("Deduction (No Work / 4 days)", -fixedDeduction, true));
             }
 
-            lines.Add(new VoucherLineItem("Advance Salary Deduction", -advanceSalary, true));
+            if (advanceSalary > 0)
+            {
+                lines.Add(new VoucherLineItem("Advance Salary Deduction", -advanceSalary, true));
+            }
 
             var totalAmount = lines.Sum(x => x.Amount);
 
@@ -537,6 +546,34 @@ public class ExcelReportService : IExcelReportService
 
     private string GetReportSetting(string key, string fallback)
         => _configuration[$"Report:{key}"]?.Trim() is { Length: > 0 } value ? value : fallback;
+
+    private static PayrollAdjustmentSnapshot ParsePayrollAdjustmentNotes(string? notes)
+    {
+        if (string.IsNullOrWhiteSpace(notes) || !notes.StartsWith("adj:", StringComparison.OrdinalIgnoreCase))
+        {
+            return new PayrollAdjustmentSnapshot(0, 0);
+        }
+
+        decimal fixedDeduction = 0;
+        decimal advanceSalary = 0;
+        var parts = notes.Substring(4).Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        foreach (var part in parts)
+        {
+            var split = part.Split('=', 2, StringSplitOptions.TrimEntries);
+            if (split.Length != 2) continue;
+
+            if (split[0].Equals("fixedDeduction", StringComparison.OrdinalIgnoreCase))
+            {
+                decimal.TryParse(split[1], NumberStyles.Number, CultureInfo.InvariantCulture, out fixedDeduction);
+            }
+            else if (split[0].Equals("advanceSalary", StringComparison.OrdinalIgnoreCase))
+            {
+                decimal.TryParse(split[1], NumberStyles.Number, CultureInfo.InvariantCulture, out advanceSalary);
+            }
+        }
+
+        return new PayrollAdjustmentSnapshot(fixedDeduction, advanceSalary);
+    }
 
     private static void RenderVoucher(IContainer container, PaymentVoucherData voucher)
     {
@@ -648,6 +685,7 @@ public class ExcelReportService : IExcelReportService
 }
 
 internal sealed record VoucherLineItem(string Label, decimal Amount, bool IsDeduction);
+internal sealed record PayrollAdjustmentSnapshot(decimal FixedDeduction, decimal AdvanceSalary);
 
 internal sealed class PaymentVoucherData
 {

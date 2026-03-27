@@ -68,8 +68,6 @@ export interface CreateEmployeeRequest {
   sundayPhOtDays: number;
   publicHolidayOtHours: number;
   transportationFee: number;
-  deductionNoWork4Days: number;
-  advanceSalary: number;
   standardWorkHours: number;
   joinDate?: string | null;
 }
@@ -111,8 +109,6 @@ export interface CreateEmployeePayrollProfileRequest {
   sundayPhOtDays: number;
   publicHolidayOtHours: number;
   transportationFee: number;
-  deductionNoWork4Days: number;
-  advanceSalary: number;
   standardWorkHours: number;
   isPrimary: boolean;
   status: string;
@@ -233,6 +229,13 @@ export interface ProcessPayrollRequest {
   month: number;
   year: number;
   employeeIds?: number[];
+  adjustments?: PayrollProcessAdjustment[];
+}
+
+export interface PayrollProcessAdjustment {
+  employeePayrollProfileId: number;
+  advanceSalary: number;
+  deductionNoWork4Days: number;
 }
 
 export interface UpdatePayrollStatusRequest {
