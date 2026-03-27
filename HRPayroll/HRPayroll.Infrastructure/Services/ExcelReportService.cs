@@ -299,20 +299,24 @@ public class ExcelReportService : IExcelReportService
             // Payroll summary rows
             decimal workDays = Enumerable.Range(1, daysInMonth)
                 .Count(d => new DateTime(req.Year, req.Month, d).DayOfWeek != DayOfWeek.Sunday);
+            decimal grossMonthlyRate = payroll.BasicSalary + profile.ShiftAllowance;
             decimal dailyRate = payroll.DailyRate > 0
                 ? payroll.DailyRate
                 : (string.Equals(profile.SalaryMode, "Daily", StringComparison.OrdinalIgnoreCase)
                     ? profile.DailyRate
-                    : (workDays > 0 ? payroll.BasicSalary / workDays : 0));
+                    : (workDays > 0 ? grossMonthlyRate / workDays : 0));
+            decimal hourlyBasicRate = string.Equals(profile.SalaryMode, "Daily", StringComparison.OrdinalIgnoreCase)
+                ? (profile.DailyRate > 0 ? profile.DailyRate : dailyRate) / Math.Max(profile.StandardWorkHours, 1)
+                : (payroll.BasicSalary * 12m) / (52m * 44m);
             decimal otRate = profile.OTRatePerHour > 0
                 ? profile.OTRatePerHour
-                : (string.Equals(profile.SalaryMode, "Daily", StringComparison.OrdinalIgnoreCase)
-                    ? Math.Round((profile.DailyRate > 0 ? profile.DailyRate : dailyRate) / 8m * 1.5m, 2)
-                    : Math.Round(payroll.BasicSalary / 24m / 11m * 1.5m, 2));
+                : Math.Round(hourlyBasicRate * 1.5m, 2);
             decimal otAmount = payroll.OTAmount > 0 ? payroll.OTAmount : (totalOTHours * otRate);
             decimal deductions = payroll.Deductions > 0 ? payroll.Deductions : (absentCount * dailyRate);
-            decimal grossSalary = payroll.GrossSalary > 0 ? payroll.GrossSalary : (payroll.BasicSalary + otAmount - deductions);
-            decimal netSalary = payroll.NetSalary > 0 ? payroll.NetSalary : grossSalary;
+            decimal grossSalary = payroll.GrossSalary > 0
+                ? payroll.GrossSalary
+                : (payroll.BasicSalary + profile.ShiftAllowance + profile.TransportationFee + otAmount);
+            decimal netSalary = payroll.NetSalary > 0 ? payroll.NetSalary : (grossSalary - deductions);
 
             var summaryItems = new[]
             {

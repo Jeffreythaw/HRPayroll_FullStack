@@ -120,9 +120,15 @@ public class PayrollService : IPayrollService
             decimal totalOTHours = attendanceOTHours + sundayPhHours + publicHolidayHours;
 
             var salaryMode = string.IsNullOrWhiteSpace(profile.SalaryMode) ? "Monthly" : profile.SalaryMode;
+            decimal grossMonthlyRate = salaryMode.Equals("Daily", StringComparison.OrdinalIgnoreCase)
+                ? 0
+                : profile.BasicSalary + profile.ShiftAllowance;
             decimal dailyRate = salaryMode.Equals("Daily", StringComparison.OrdinalIgnoreCase)
                 ? (profile.DailyRate > 0 ? profile.DailyRate : 0)
-                : (profile.DailyRate > 0 ? profile.DailyRate : (workingDays > 0 ? profile.BasicSalary / workingDays : 0));
+                : (workingDays > 0 ? grossMonthlyRate / workingDays : 0);
+            decimal hourlyBasicRate = salaryMode.Equals("Daily", StringComparison.OrdinalIgnoreCase)
+                ? (profile.DailyRate > 0 ? profile.DailyRate : 0) / Math.Max(profile.StandardWorkHours, 1)
+                : (profile.BasicSalary * 12m) / (52m * 44m);
 
             decimal baseSalary = salaryMode.Equals("Daily", StringComparison.OrdinalIgnoreCase)
                 ? dailyRate * presentDays
@@ -131,9 +137,7 @@ public class PayrollService : IPayrollService
             decimal deductions = baseDeductions + profile.DeductionNoWork4Days + profile.AdvanceSalary;
             decimal otRate = profile.OTRatePerHour > 0
                 ? profile.OTRatePerHour
-                : salaryMode.Equals("Daily", StringComparison.OrdinalIgnoreCase)
-                    ? Math.Round(dailyRate / 8m * 1.5m, 2)
-                    : Math.Round(profile.BasicSalary / 24m / 11m * 1.5m, 2);
+                : Math.Round(hourlyBasicRate * 1.5m, 2);
             decimal otAmount = totalOTHours * otRate;
             decimal grossSalary = baseSalary + profile.ShiftAllowance + profile.TransportationFee + otAmount;
             decimal netSalary = grossSalary - deductions;
